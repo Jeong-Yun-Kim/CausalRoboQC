@@ -1,0 +1,48 @@
+# Local editor and Codex metadata
+.vscode/
+.idea/
+.agents/
+.codex/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Local environment and secrets (keep shareable templates)
+*.env
+*.env.*
+!*.env.example
+!*.env.sample
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Runtime data and logs
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.log
+
+# PlatformIO
+.pio/
+
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+
+# Miscellaneous temporary files
+*.tmp
+*.temp

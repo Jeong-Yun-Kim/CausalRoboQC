@@ -1,0 +1,41 @@
+services:
+  server:
+    build:
+      context: ./server
+    container_name: causalroboqc-server
+    environment:
+      SERIAL_PORT: ${SERIAL_DEVICE:-/dev/ttyACM0}
+      SERIAL_BAUD_RATE: ${SERIAL_BAUD:-115200}
+      DATABASE_PATH: /app/data/robot_arm.db
+      POSES_PATH: /app/config/poses.json
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - sqlite_data:/app/data
+      - ./server/config:/app/config
+      - /dev:/dev
+    device_cgroup_rules:
+      - "c 166:* rmw"
+      - "c 188:* rmw"
+    restart: unless-stopped
+
+  app:
+    build:
+      context: ./app
+    container_name: causalroboqc-app
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  sqlite_data:
+    name: causalroboqc-sqlite
