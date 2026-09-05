@@ -34,15 +34,36 @@ class Database:
                     error TEXT
                 );
 
+                CREATE TABLE IF NOT EXISTS rpf_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    run_id INTEGER,
+                    cycle_index INTEGER,
+                    product_id TEXT,
+                    status TEXT,
+                    started_at TEXT,
+                    finished_at TEXT,
+                    work_time_ms INTEGER,
+                    retry_count INTEGER NOT NULL DEFAULT 0,
+                    error_count INTEGER NOT NULL DEFAULT 0,
+                    operator_interventions INTEGER NOT NULL DEFAULT 0,
+                    grade TEXT,
+                    grade_reasons TEXT NOT NULL DEFAULT '[]',
+                    created_at TEXT,
+                    updated_at TEXT,
+                    FOREIGN KEY (run_id) REFERENCES runs(id)
+                );
+
                 CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     run_id INTEGER,
+                    rpf_id INTEGER,
                     event_type TEXT NOT NULL,
                     name TEXT NOT NULL,
                     payload TEXT NOT NULL DEFAULT '{}',
                     raw TEXT,
                     created_at TEXT NOT NULL,
-                    FOREIGN KEY (run_id) REFERENCES runs(id)
+                    FOREIGN KEY (run_id) REFERENCES runs(id),
+                    FOREIGN KEY (rpf_id) REFERENCES rpf_records(id)
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_events_run_id_id ON events(run_id, id);
@@ -82,6 +103,22 @@ class Database:
                     "ALTER TABLE runs "
                     "ADD COLUMN run_mode TEXT NOT NULL DEFAULT 'normal'"
                 )
+            event_columns = {
+                str(row["name"])
+                for row in self.connection.execute("PRAGMA table_info(events)").fetchall()
+            }
+            if "rpf_id" not in event_columns:
+                self.connection.execute(
+                    "ALTER TABLE events "
+                    "ADD COLUMN rpf_id INTEGER REFERENCES rpf_records(id)"
+                )
+            self.connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_events_rpf_id ON events(rpf_id)"
+            )
+            self.connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_rpf_records_run_cycle "
+                "ON rpf_records(run_id, cycle_index)"
+            )
             self.connection.commit()
 
     @staticmethod
@@ -102,6 +139,18 @@ class Database:
         return item
 
     @staticmethod
+    def _rpf(row: sqlite3.Row | None) -> dict[str, Any] | None:
+        if row is None:
+            return None
+        item = dict(row)
+        try:
+            reasons = json.loads(item["grade_reasons"])
+        except (TypeError, json.JSONDecodeError):
+            reasons = []
+        item["grade_reasons"] = reasons if isinstance(reasons, list) else []
+        return item
+
+    @staticmethod
     def _review(row: sqlite3.Row) -> dict[str, Any]:
         item = dict(row)
         try:
@@ -119,14 +168,22 @@ class Database:
             ids = [int(row["id"]) for row in rows]
             now = utc_now()
             for run_id in ids:
+                rpf = self.connection.execute(
+                    "SELECT id FROM rpf_records "
+                    "WHERE run_id=? AND status='running' ORDER BY id DESC LIMIT 1",
+                    (run_id,),
+                ).fetchone()
+                rpf_id = int(rpf["id"]) if rpf is not None else None
                 self.connection.execute(
                     "UPDATE runs SET status='interrupted', finished_at=?, error=? WHERE id=?",
                     (now, "Server restarted while the run was active", run_id),
                 )
                 self.connection.execute(
-                    "INSERT INTO events(run_id,event_type,name,payload,created_at) VALUES(?,?,?,?,?)",
+                    "INSERT INTO events(run_id,rpf_id,event_type,name,payload,created_at) "
+                    "VALUES(?,?,?,?,?,?)",
                     (
                         run_id,
+                        rpf_id,
                         "F",
                         "RUN_INTERRUPTED",
                         json.dumps({"reason": "server_restart"}, separators=(",", ":")),
@@ -180,6 +237,94 @@ class Database:
             self.connection.commit()
             return self.get_run(run_id)
 
+    def next_rpf_sequence(self) -> int:
+        with self.lock:
+            row = self.connection.execute(
+                "SELECT COALESCE(MAX(id), 0) + 1 AS next_id FROM rpf_records"
+            ).fetchone()
+            return int(row["next_id"])
+
+    def create_rpf(
+        self,
+        run_id: int,
+        cycle_index: int,
+        product_id: str,
+    ) -> dict[str, Any]:
+        now = utc_now()
+        with self.lock:
+            cursor = self.connection.execute(
+                """
+                INSERT INTO rpf_records(
+                    run_id,cycle_index,product_id,status,started_at,created_at,updated_at
+                ) VALUES(?,?,?,?,?,?,?)
+                """,
+                (run_id, cycle_index, product_id, "running", now, now, now),
+            )
+            self.connection.commit()
+            return self.get_rpf(int(cursor.lastrowid))
+
+    def get_rpf(self, rpf_id: int) -> dict[str, Any] | None:
+        with self.lock:
+            row = self.connection.execute(
+                "SELECT * FROM rpf_records WHERE id=?", (rpf_id,)
+            ).fetchone()
+            return self._rpf(row)
+
+    def list_rpfs(self, limit: int, offset: int) -> list[dict[str, Any]]:
+        with self.lock:
+            rows = self.connection.execute(
+                "SELECT * FROM rpf_records ORDER BY id DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            ).fetchall()
+            return [self._rpf(row) for row in rows]
+
+    def list_running_rpfs(self) -> list[dict[str, Any]]:
+        with self.lock:
+            rows = self.connection.execute(
+                "SELECT * FROM rpf_records WHERE status='running' ORDER BY id"
+            ).fetchall()
+            return [self._rpf(row) for row in rows]
+
+    def finish_rpf(
+        self,
+        rpf_id: int,
+        *,
+        status: str,
+        finished_at: str,
+        work_time_ms: int,
+        retry_count: int,
+        error_count: int,
+        operator_interventions: int,
+        grade: str,
+        grade_reasons: list[str],
+    ) -> dict[str, Any] | None:
+        encoded_reasons = json.dumps(
+            grade_reasons, ensure_ascii=False, separators=(",", ":")
+        )
+        with self.lock:
+            self.connection.execute(
+                """
+                UPDATE rpf_records
+                SET status=?,finished_at=?,work_time_ms=?,retry_count=?,error_count=?,
+                    operator_interventions=?,grade=?,grade_reasons=?,updated_at=?
+                WHERE id=?
+                """,
+                (
+                    status,
+                    finished_at,
+                    max(0, work_time_ms),
+                    retry_count,
+                    error_count,
+                    operator_interventions,
+                    grade,
+                    encoded_reasons,
+                    finished_at,
+                    rpf_id,
+                ),
+            )
+            self.connection.commit()
+            return self.get_rpf(rpf_id)
+
     def add_event(
         self,
         run_id: int | None,
@@ -187,14 +332,15 @@ class Database:
         name: str,
         payload: dict[str, Any] | None = None,
         raw: str | None = None,
+        rpf_id: int | None = None,
     ) -> dict[str, Any]:
         now = utc_now()
         encoded = json.dumps(payload or {}, ensure_ascii=False, separators=(",", ":"))
         with self.lock:
             cursor = self.connection.execute(
-                "INSERT INTO events(run_id,event_type,name,payload,raw,created_at) "
-                "VALUES(?,?,?,?,?,?)",
-                (run_id, event_type, name, encoded, raw, now),
+                "INSERT INTO events(run_id,rpf_id,event_type,name,payload,raw,created_at) "
+                "VALUES(?,?,?,?,?,?,?)",
+                (run_id, rpf_id, event_type, name, encoded, raw, now),
             )
             self.connection.commit()
             row = self.connection.execute(
@@ -219,6 +365,13 @@ class Database:
             rows = self.connection.execute(
                 f"SELECT * FROM events{where} ORDER BY id {order} LIMIT ?",
                 (*parameters, limit),
+            ).fetchall()
+            return [self._event(row) for row in rows]
+
+    def list_rpf_events(self, rpf_id: int) -> list[dict[str, Any]]:
+        with self.lock:
+            rows = self.connection.execute(
+                "SELECT * FROM events WHERE rpf_id=? ORDER BY id ASC", (rpf_id,)
             ).fetchall()
             return [self._event(row) for row in rows]
 

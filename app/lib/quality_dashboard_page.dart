@@ -2,12 +2,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'quality_dashboard_api.dart';
 import 'quality_dashboard_data.dart';
 
 class QualityDashboardPage extends StatefulWidget {
   const QualityDashboardPage({
     super.key,
-    this.dataSource = const MockQualityDashboardDataSource(),
+    this.dataSource = const ApiQualityDashboardDataSource(),
   });
 
   final QualityDashboardDataSource dataSource;
@@ -768,53 +769,59 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 10),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              showCheckboxColumn: false,
-              headingTextStyle: Theme.of(context).textTheme.labelLarge,
-              dataRowMinHeight: 56,
-              dataRowMaxHeight: 64,
-              columnSpacing: 24,
-              columns: const [
-                DataColumn(label: Text('제품 ID')),
-                DataColumn(label: Text('등급')),
-                DataColumn(label: Text('작업시간'), numeric: true),
-                DataColumn(label: Text('재시도'), numeric: true),
-                DataColumn(label: Text('주요 이상')),
-                DataColumn(label: Text('원인 후보')),
-                DataColumn(label: Text('상태')),
-              ],
-              rows: products.map((product) {
-                final selected = product.id == _selectedProductId;
-                final topCause = product.causeCandidates.isEmpty
-                    ? '-'
-                    : '${product.causeCandidates.first.name} ${product.causeCandidates.first.probability.toStringAsFixed(0)}%';
-                return DataRow(
-                  selected: selected,
-                  onSelectChanged: (_) {
-                    setState(() => _selectedProductId = product.id);
-                    _showProductDetail(data, product);
-                  },
-                  cells: [
-                    DataCell(
-                      Text(
-                        product.id,
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+          if (products.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: Text('표시할 RPF가 없습니다.')),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                showCheckboxColumn: false,
+                headingTextStyle: Theme.of(context).textTheme.labelLarge,
+                dataRowMinHeight: 56,
+                dataRowMaxHeight: 64,
+                columnSpacing: 24,
+                columns: const [
+                  DataColumn(label: Text('제품 ID')),
+                  DataColumn(label: Text('등급')),
+                  DataColumn(label: Text('작업시간'), numeric: true),
+                  DataColumn(label: Text('재시도'), numeric: true),
+                  DataColumn(label: Text('주요 이상')),
+                  DataColumn(label: Text('판정 근거')),
+                  DataColumn(label: Text('상태')),
+                ],
+                rows: products.map((product) {
+                  final selected = product.id == _selectedProductId;
+                  final gradeReasons = product.observations.isEmpty
+                      ? '-'
+                      : product.observations.join(', ');
+                  return DataRow(
+                    selected: selected,
+                    onSelectChanged: (_) {
+                      setState(() => _selectedProductId = product.id);
+                      _showProductDetail(data, product);
+                    },
+                    cells: [
+                      DataCell(
+                        Text(
+                          product.id,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
                       ),
-                    ),
-                    DataCell(_gradeBadge(product.grade, compact: true)),
-                    DataCell(
-                        Text('${product.workTimeSeconds.toStringAsFixed(1)}s')),
-                    DataCell(Text('${product.retries}회')),
-                    DataCell(Text(product.majorAbnormality)),
-                    DataCell(Text(topCause)),
-                    DataCell(Text(product.status)),
-                  ],
-                );
-              }).toList(growable: false),
+                      DataCell(_gradeBadge(product.grade, compact: true)),
+                      DataCell(Text(
+                          '${product.workTimeSeconds.toStringAsFixed(1)}s')),
+                      DataCell(Text('${product.retries}회')),
+                      DataCell(Text(product.majorAbnormality)),
+                      DataCell(Text(gradeReasons)),
+                      DataCell(Text(product.status)),
+                    ],
+                  );
+                }).toList(growable: false),
+              ),
             ),
-          ),
         ],
       ),
     );

@@ -131,6 +131,26 @@ async def get_events(
     }
 
 
+@app.get("/api/rpf")
+async def get_rpf_records(
+    request: Request,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, Any]:
+    return {"items": service_from(request).database.list_rpfs(limit, offset)}
+
+
+@app.get("/api/rpf/{rpf_id}")
+async def get_rpf_record(
+    request: Request, rpf_id: Annotated[int, Path(ge=1)]
+) -> dict[str, Any]:
+    database = service_from(request).database
+    record = database.get_rpf(rpf_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="RPF not found")
+    return {**record, "events": database.list_rpf_events(rpf_id)}
+
+
 @app.get("/api/calibration")
 async def get_calibration(request: Request) -> dict[str, Any]:
     return service_from(request).calibration_response()

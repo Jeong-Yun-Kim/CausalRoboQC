@@ -29,6 +29,7 @@ class Settings:
     repeat_unlock_samples: int
     database_path: Path
     poses_path: Path
+    rpf_rules_path: Path
 
 
 def load_settings() -> Settings:
@@ -47,5 +48,8 @@ def load_settings() -> Settings:
         ).expanduser(),
         poses_path=Path(
             os.getenv("POSES_PATH", str(repo_dir / "robot_arm" / "poses.json"))
+        ).expanduser(),
+        rpf_rules_path=Path(
+            os.getenv("RPF_RULES_PATH", str(server_dir / "config" / "rpf_rules.json"))
         ).expanduser(),
     )

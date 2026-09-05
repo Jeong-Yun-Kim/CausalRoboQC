@@ -3,12 +3,14 @@ import json
 import os
 from contextlib import suppress
 from pathlib import Path
+from time import monotonic
 from typing import Any
 
 from fastapi import WebSocket
 
 from .config import Settings
 from .database import Database, utc_now
+from .rpf import RpfPipeline
 from .serial_link import SerialLink
 
 
@@ -176,6 +178,8 @@ class RobotService:
         }
         self.initialized_joints: set[int] = set()
         self.active_run_id: int | None = None
+        self.active_rpf_id: int | None = None
+        self.active_rpf_started: float | None = None
         self.run_task: asyncio.Task[None] | None = None
         self.manual_move_task: asyncio.Task[Any] | None = None
         self._waiters: list[tuple[Any, asyncio.Future[str]]] = []
@@ -183,10 +187,14 @@ class RobotService:
         self._command_owner: asyncio.Task[Any] | None = None
         self._stop_lock = asyncio.Lock()
         self._serial_was_ready = False
+        self.rpf = RpfPipeline(database, settings.rpf_rules_path)
         self.serial = SerialLink(settings, self.handle_line, self.handle_serial_state)
 
     async def start(self) -> None:
+        interrupted_rpfs = self.database.list_running_rpfs()
         self.database.recover_interrupted_runs()
+        for record in interrupted_rpfs:
+            self.rpf.finish_cycle(int(record["id"]), "failed", None)
         await self.serial.start()
 
     async def shutdown(self) -> None:
@@ -283,10 +291,15 @@ class RobotService:
         payload: dict[str, Any] | None = None,
         raw: str | None = None,
         run_id: int | None = None,
+        rpf_id: int | None = None,
     ) -> dict[str, Any]:
         if run_id is None:
             run_id = self.active_run_id
-        event = self.database.add_event(run_id, event_type, name, payload, raw)
+        if rpf_id is None and run_id == self.active_run_id:
+            rpf_id = self.active_rpf_id
+        event = self.database.add_event(
+            run_id, event_type, name, payload, raw, rpf_id=rpf_id
+        )
         await self.hub.broadcast("event", event)
         return event
 
@@ -384,7 +397,12 @@ class RobotService:
         event = None
         if line_run_id is not None or response != "STATUS":
             event = self.database.add_event(
-                line_run_id, "P", f"ARDUINO_{response}", payload, line
+                line_run_id,
+                "P",
+                f"ARDUINO_{response}",
+                payload,
+                line,
+                rpf_id=self.active_rpf_id if line_run_id is not None else None,
             )
         for predicate, future in list(self._waiters):
             if not future.done() and predicate(line):
@@ -678,44 +696,72 @@ class RobotService:
         cycle = 0
         try:
             while True:
-                for step_index, name in enumerate(sequence):
-                    pose = poses[name]
-                    if pose is None:
-                        raise RobotError(409, f"Pose is not saved: {name}")
-                    self.database.update_run(
-                        run_id, current_pose=name, step_index=step_index, cycle_count=cycle
+                rpf = self.rpf.start_cycle(run_id, cycle)
+                self.active_rpf_id = int(rpf["id"])
+                self.active_rpf_started = monotonic()
+                try:
+                    await self._add_event(
+                        "F",
+                        "RPF_STARTED",
+                        {"cycle": cycle, "product_id": rpf["product_id"]},
+                        run_id=run_id,
+                        rpf_id=self.active_rpf_id,
                     )
-                    await self._broadcast_status()
-                    injection = ERROR_INJECTIONS.get(name)
-                    if run_mode == "error" and injection is not None:
-                        event_name, cause = injection
+                    for step_index, name in enumerate(sequence):
+                        pose = poses[name]
+                        if pose is None:
+                            raise RobotError(409, f"Pose is not saved: {name}")
+                        self.database.update_run(
+                            run_id,
+                            current_pose=name,
+                            step_index=step_index,
+                            cycle_count=cycle,
+                        )
+                        await self._broadcast_status()
+                        injection = ERROR_INJECTIONS.get(name)
+                        if run_mode == "error" and injection is not None:
+                            event_name, cause = injection
+                            await self._add_event(
+                                "F",
+                                event_name,
+                                {
+                                    "synthetic": True,
+                                    "source": "error_test",
+                                    "cause": cause,
+                                    "pose": name,
+                                    "step_index": step_index,
+                                    "cycle": cycle,
+                                },
+                                run_id=run_id,
+                            )
+                        await self._move_pose(name, pose, run_id, step_index, cycle)
+                        await asyncio.sleep(self.settings.pose_pause_seconds)
+                    if run_mode == "error":
                         await self._add_event(
                             "F",
-                            event_name,
+                            "WORK_TIME_OVERRUN_INJECTED",
                             {
                                 "synthetic": True,
                                 "source": "error_test",
-                                "cause": cause,
-                                "pose": name,
-                                "step_index": step_index,
+                                "cause": "작업시간 초과",
                                 "cycle": cycle,
                             },
                             run_id=run_id,
                         )
-                    await self._move_pose(name, pose, run_id, step_index, cycle)
-                    await asyncio.sleep(self.settings.pose_pause_seconds)
-                if run_mode == "error":
+                except asyncio.CancelledError:
+                    await self._finish_active_rpf("failed")
+                    raise
+                except Exception as exc:
                     await self._add_event(
                         "F",
-                        "WORK_TIME_OVERRUN_INJECTED",
-                        {
-                            "synthetic": True,
-                            "source": "error_test",
-                            "cause": "작업시간 초과",
-                            "cycle": cycle,
-                        },
+                        "RPF_FAILED",
+                        {"error": str(exc), "cycle": cycle},
                         run_id=run_id,
                     )
+                    await self._finish_active_rpf("failed")
+                    raise
+                else:
+                    await self._finish_active_rpf("completed")
                 cycle += 1
                 self.database.update_run(run_id, cycle_count=cycle, step_index=0)
                 if not repeat:
@@ -734,6 +780,25 @@ class RobotService:
                         run_id,
                     )
             await self._finish_run(run_id, "failed", str(exc), "RUN_FAILED")
+
+    async def _finish_active_rpf(self, status: str) -> dict[str, Any] | None:
+        rpf_id = self.active_rpf_id
+        if rpf_id is None:
+            return None
+        started = self.active_rpf_started
+        elapsed_ms = None if started is None else round((monotonic() - started) * 1000)
+        event = self.database.add_event(
+            self.active_run_id,
+            "F",
+            "RPF_FINISHED",
+            {"status": status},
+            rpf_id=rpf_id,
+        )
+        record = self.rpf.finish_cycle(rpf_id, status, elapsed_ms)
+        self.active_rpf_id = None
+        self.active_rpf_started = None
+        await self.hub.broadcast("event", event)
+        return record
 
     async def _finish_run(
         self, run_id: int, status: str, error: str | None, event_name: str
@@ -779,6 +844,12 @@ class RobotService:
             run_id = self.active_run_id
             if run_id is not None:
                 self.database.update_run(run_id, status="stopping")
+                await self._add_event(
+                    "F",
+                    "OPERATOR_INTERVENTION",
+                    {"action": "STOP"},
+                    run_id=run_id,
+                )
                 task = self.run_task
                 if task is not None and not task.done():
                     task.cancel()
@@ -822,6 +893,12 @@ class RobotService:
         async with self._stop_lock:
             run_id = self.active_run_id
             if command in {"ESTOP", "DETACH"} and run_id is not None:
+                await self._add_event(
+                    "F",
+                    "OPERATOR_INTERVENTION",
+                    {"action": command},
+                    run_id=run_id,
+                )
                 task = self.run_task
                 if task is not None and not task.done():
                     task.cancel()
