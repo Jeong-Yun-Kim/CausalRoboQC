@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "synthetic_data": true,
+  "intended_use": "ML/DL analysis pipeline validation in notebooks only",
+  "limitations": [
+    "SYNTHETIC DATA ONLY: pipeline validation, not real manufacturing performance. Anomaly scores are not defect probabilities; inspection risk is an uncalibrated synthetic-data trial score.",
+    "Durations, grade regimes and inspection outcomes are invented, not measured.",
+    "Synthetic grades are not the production event-based RPF grade rules.",
+    "The autoencoder uses seven stage durations per product, not continuous sensor data.",
+    "Train/test products share a synthetic generator; real-process generalization is untested."
+  ],
+  "random_seed": 42,
+  "sample_count": 2000,
+  "sequence_sample_count": 2000,
+  "grade_distribution": {
+    "normal": 1500,
+    "review": 360,
+    "priority": 140
+  },
+  "inspection_distribution": {
+    "pass": 1610,
+    "fail": 390
+  },
+  "feature_names": [
+    "work_time_ms",
+    "retry_count",
+    "error_count",
+    "operator_interventions"
+  ],
+  "random_forest_feature_names": [
+    "work_time_ms",
+    "retry_count",
+    "error_count",
+    "operator_interventions",
+    "anomaly_score"
+  ],
+  "sequence_feature_names": [
+    "HOME",
+    "PICK_ABOVE",
+    "PICK",
+    "GRAB",
+    "LIFT",
+    "PLACE",
+    "RELEASE"
+  ],
+  "duration_unit": "milliseconds",
+  "excluded_input_columns": [
+    "product_id",
+    "grade",
+    "inspection_result"
+  ],
+  "grade_usage": "normal subset selection, split stratification and evaluation grouping; never a feature",
+  "inspection_result_usage": "Random Forest target and split stratification only; never a feature",
+  "trained_at_utc": "2026-09-06T20:46:09.292379+00:00",
+  "versions": {
+    "python": "3.10.12",
+    "numpy": "1.26.4",
+    "pandas": "2.3.3",
+    "scipy": "1.15.3",
+    "sklearn": "1.7.2",
+    "joblib": "1.6.0",
+    "torch": "2.9.0+cu128"
+  },
+  "split": {
+    "method": "sklearn.model_selection.train_test_split before any fitting",
+    "unit": "product_id",
+    "test_size": 0.2,
+    "random_state": 42,
+    "stratify": [
+      "grade",
+      "inspection_result"
+    ],
+    "train_count": 1600,
+    "test_count": 400,
+    "normal_train_count": 1200,
+    "normal_test_count": 300,
+    "train_product_ids_sha256": "e5a49d1d6f4a71e9525b9cff5759353864c721f95a6446a0bfaf08dd6b29e598",
+    "test_product_ids_sha256": "9d2ff3102737f5d3d642f555cc8945b2073ee2c262be68babc8a2e3c0b650f5c"
+  },
+  "data_sha256": {
+    "rpf.csv": "d20c531185548a0d0d39d07a06f187bef1accfca773068fda84cd1947b987faa",
+    "rpf_sequences.csv": "3eab6e9a2708e6dda17bdd65c103c888b185a467ec0b2bfd649fe93beb786d16"
+  },
+  "models": {
+    "isolation_forest": {
+      "type": "sklearn.ensemble.IsolationForest",
+      "parameters": {
+        "bootstrap": false,
+        "contamination": "auto",
+        "max_features": 1.0,
+        "max_samples": 256,
+        "n_estimators": 128,
+        "n_jobs": 1,
+        "random_state": 42,
+        "verbose": 0,
+        "warm_start": false
+      },
+      "fit_population": "normal training products only",
+      "output": "anomaly_score",
+      "meaning": "unusualness relative to normal process features"
+    },
+    "random_forest": {
+      "type": "sklearn.ensemble.RandomForestClassifier",
+      "parameters": {
+        "bootstrap": true,
+        "ccp_alpha": 0.0,
+        "class_weight": null,
+        "criterion": "gini",
+        "max_depth": 8,
+        "max_features": "sqrt",
+        "max_leaf_nodes": null,
+        "max_samples": null,
+        "min_impurity_decrease": 0.0,
+        "min_samples_leaf": 8,
+        "min_samples_split": 2,
+        "min_weight_fraction_leaf": 0.0,
+        "monotonic_cst": null,
+        "n_estimators": 160,
+        "n_jobs": 1,
+        "oob_score": false,
+        "random_state": 42,
+        "verbose": 0,
+        "warm_start": false
+      },
+      "fit_population": "all training products",
+      "target": "inspection_result",
+      "positive_class": "fail",
+      "classes": [
+        "fail",
+        "pass"
+      ],
+      "output": "inspection_risk_score",
+      "meaning": "uncalibrated synthetic inspection risk trial score"
+    },
+    "autoencoder": {
+      "type": "torch MLP Autoencoder",
+      "architecture": {
+        "input_dim": 7,
+        "hidden_dim": 12,
+        "latent_dim": 3
+      },
+      "device": "cpu",
+      "epochs": 160,
+      "batch_size": 64,
+      "optimizer": "Adam",
+      "learning_rate": 0.005,
+      "weight_decay": 1e-05,
+      "loss": "MSE",
+      "torch_num_threads": 1,
+      "fit_population": "normal training products only",
+      "output": "timeseries_anomaly_score",
+      "meaning": "difference from normal stage-duration patterns"
+    }
+  },
+  "scalers": {
+    "feature_scaler": {
+      "type": "StandardScaler",
+      "fit_population": "normal training products only"
+    },
+    "sequence_scaler": {
+      "type": "StandardScaler",
+      "fit_population": "normal training products only"
+    }
+  },
+  "score_normalization": {
+    "anomaly_score": {
+      "method": "bounded_excess_ratio",
+      "raw_score": "-IsolationForest.score_samples(StandardScaler(features))",
+      "fit_population": "grade == normal in training partition only",
+      "lower_quantile": 0.05,
+      "reference_quantile": 0.99,
+      "lower": 0.3653885075123805,
+      "reference": 0.7608856812838015,
+      "scale": 0.395497173771421,
+      "formula": "excess=max(raw-lower,0); score=excess/(excess+scale)",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "interpretation": "0 at/below normal p05; 0.5 at normal p99; tends to 1",
+      "is_defect_probability": false
+    },
+    "timeseries_anomaly_score": {
+      "method": "bounded_excess_ratio",
+      "raw_score": "mean((autoencoder(standardized_sequence)-standardized_sequence)^2)",
+      "fit_population": "grade == normal in training partition only",
+      "lower_quantile": 0.05,
+      "reference_quantile": 0.99,
+      "lower": 0.020213832147419453,
+      "reference": 0.7214470148086545,
+      "scale": 0.701233182661235,
+      "formula": "excess=max(raw-lower,0); score=excess/(excess+scale)",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "interpretation": "0 at/below normal p05; 0.5 at normal p99; tends to 1",
+      "is_defect_probability": false
+    },
+    "inspection_risk_score": {
+      "method": "RandomForestClassifier.predict_proba column for class fail",
+      "range": [
+        0.0,
+        1.0
+      ],
+      "synthetic_trial_score": true,
+      "calibrated": false,
+      "real_process_probability": false
+    }
+  },
+  "synthetic_test_metrics": {
+    "scope": "held-out synthetic data only; not real manufacturing performance",
+    "random_forest": {
+      "roc_auc": 0.8173374613003095,
+      "brier_score": 0.1045110501363917
+    },
+    "autoencoder": {
+      "normal_train_mean_reconstruction_error": 0.15372395515441895,
+      "normal_test_mean_reconstruction_error": 0.16652996838092804
+    },
+    "test_mean_scores_by_synthetic_grade": {
+      "normal": {
+        "sample_count": 300,
+        "anomaly_score": 0.12422670733364682,
+        "timeseries_anomaly_score": 0.15128574339605436
+      },
+      "review": {
+        "sample_count": 72,
+        "anomaly_score": 0.4559088601711794,
+        "timeseries_anomaly_score": 0.7706466685377232
+      },
+      "priority": {
+        "sample_count": 28,
+        "anomaly_score": 0.5314580778516786,
+        "timeseries_anomaly_score": 0.9609170063233997
+      }
+    }
+  }
+}
