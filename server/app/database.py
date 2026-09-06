@@ -66,6 +66,17 @@ class Database:
                     FOREIGN KEY (rpf_id) REFERENCES rpf_records(id)
                 );
 
+                CREATE TABLE IF NOT EXISTS analysis_results (
+                    rpf_id INTEGER PRIMARY KEY,
+                    anomaly_score REAL NOT NULL CHECK (anomaly_score BETWEEN 0 AND 1),
+                    inspection_risk_score REAL NOT NULL CHECK (inspection_risk_score BETWEEN 0 AND 1),
+                    timeseries_anomaly_score REAL CHECK (timeseries_anomaly_score BETWEEN 0 AND 1),
+                    synthetic_model INTEGER NOT NULL DEFAULT 1,
+                    model_info TEXT NOT NULL DEFAULT '{}',
+                    analyzed_at TEXT NOT NULL,
+                    FOREIGN KEY (rpf_id) REFERENCES rpf_records(id)
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_events_run_id_id ON events(run_id, id);
                 CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at);
 
@@ -277,6 +288,41 @@ class Database:
                 (limit, offset),
             ).fetchall()
             return [self._rpf(row) for row in rows]
+
+    def get_analysis_result(self, rpf_id: int) -> dict[str, Any] | None:
+        with self.lock:
+            row = self.connection.execute(
+                "SELECT * FROM analysis_results WHERE rpf_id=?", (rpf_id,)
+            ).fetchone()
+            if row is None:
+                return None
+            result = dict(row)
+            result["synthetic_model"] = bool(result["synthetic_model"])
+            result["model_info"] = json.loads(result["model_info"])
+            return result
+
+    def save_analysis_result(self, result: dict[str, Any]) -> dict[str, Any]:
+        encoded_info = json.dumps(result["model_info"], ensure_ascii=False, allow_nan=False)
+        with self.lock:
+            self.connection.execute(
+                """
+                INSERT INTO analysis_results (
+                    rpf_id, anomaly_score, inspection_risk_score, timeseries_anomaly_score,
+                    synthetic_model, model_info, analyzed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(rpf_id) DO UPDATE SET
+                    anomaly_score=excluded.anomaly_score,
+                    inspection_risk_score=excluded.inspection_risk_score,
+                    timeseries_anomaly_score=excluded.timeseries_anomaly_score,
+                    synthetic_model=excluded.synthetic_model,
+                    model_info=excluded.model_info,
+                    analyzed_at=excluded.analyzed_at
+                """,
+                (result["rpf_id"], result["anomaly_score"], result["inspection_risk_score"],
+                 result["timeseries_anomaly_score"], int(result["synthetic_model"]), encoded_info, utc_now()),
+            )
+            self.connection.commit()
+            return self.get_analysis_result(result["rpf_id"])
 
     def list_running_rpfs(self) -> list[dict[str, Any]]:
         with self.lock:

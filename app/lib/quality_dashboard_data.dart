@@ -66,9 +66,13 @@ final class ProductRpf {
     required this.causeCandidates,
     required this.timeline,
     required this.recommendations,
+    this.rpfId,
+    this.isCompleted = false,
   });
 
   final String id;
+  final int? rpfId;
+  final bool isCompleted;
   final QualityGrade grade;
   final double workTimeSeconds;
   final int retries;
@@ -126,6 +130,44 @@ final class DashboardData {
 
 abstract interface class QualityDashboardDataSource {
   Future<DashboardData> load();
+}
+
+final class RpfAnalysisResult {
+  const RpfAnalysisResult({
+    required this.anomalyScore,
+    required this.inspectionRiskScore,
+    required this.timeseriesAnomalyScore,
+    required this.syntheticModel,
+  });
+
+  factory RpfAnalysisResult.fromJson(Map<String, dynamic> json) {
+    double score(String name) {
+      final value = json[name];
+      if (value is! num || !value.isFinite || value < 0 || value > 1) {
+        throw const FormatException('분석 점수 형식이 올바르지 않습니다.');
+      }
+      return value.toDouble();
+    }
+
+    return RpfAnalysisResult(
+      anomalyScore: score('anomaly_score'),
+      inspectionRiskScore: score('inspection_risk_score'),
+      timeseriesAnomalyScore: json['timeseries_anomaly_score'] == null
+          ? null
+          : score('timeseries_anomaly_score'),
+      syntheticModel: json['synthetic_model'] == true,
+    );
+  }
+
+  final double anomalyScore;
+  final double inspectionRiskScore;
+  final double? timeseriesAnomalyScore;
+  final bool syntheticModel;
+}
+
+abstract interface class RpfAnalysisDataSource {
+  Future<RpfAnalysisResult?> loadAnalysis(int rpfId);
+  Future<RpfAnalysisResult> analyze(int rpfId);
 }
 
 final class MockQualityDashboardDataSource

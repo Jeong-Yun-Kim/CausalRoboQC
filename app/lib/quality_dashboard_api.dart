@@ -10,7 +10,7 @@ const _defaultApiBase = String.fromEnvironment(
 );
 
 final class ApiQualityDashboardDataSource
-    implements QualityDashboardDataSource {
+    implements QualityDashboardDataSource, RpfAnalysisDataSource {
   const ApiQualityDashboardDataSource({this.apiBase = _defaultApiBase});
 
   final String apiBase;
@@ -20,6 +20,34 @@ final class ApiQualityDashboardDataSource
     if (normalized.isEmpty) return Uri.base.resolve(path);
     return Uri.parse('$normalized$path');
   }
+
+  Future<Map<String, dynamic>> _analysisRequest(int rpfId, {bool run = false}) async {
+    final uri = _uri('/api/rpf/$rpfId${run ? '/analyze' : ''}');
+    final response = await (run ? http.post(uri) : http.get(uri))
+        .timeout(const Duration(seconds: 15));
+    final decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final detail = decoded is Map ? decoded['detail'] : null;
+      throw Exception(detail ?? 'AI 분석 요청 오류: HTTP ${response.statusCode}');
+    }
+    if (decoded is! Map<String, dynamic>) {
+      throw const FormatException('분석 API 응답 형식이 올바르지 않습니다.');
+    }
+    return decoded;
+  }
+
+  @override
+  Future<RpfAnalysisResult?> loadAnalysis(int rpfId) async {
+    final detail = await _analysisRequest(rpfId);
+    final result = detail['analysis_result'];
+    return result == null
+        ? null
+        : RpfAnalysisResult.fromJson(Map<String, dynamic>.from(result as Map));
+  }
+
+  @override
+  Future<RpfAnalysisResult> analyze(int rpfId) async =>
+      RpfAnalysisResult.fromJson(await _analysisRequest(rpfId, run: true));
 
   @override
   Future<DashboardData> load() async {
@@ -116,6 +144,8 @@ final class ApiQualityDashboardDataSource
     final status = item['status']?.toString() ?? '-';
     return ProductRpf(
       id: item['product_id']?.toString() ?? 'RPF-${item['id']}',
+      rpfId: _integer(item['id']),
+      isCompleted: status == 'completed',
       grade: grade,
       workTimeSeconds: _number(item['work_time_ms']) / 1000,
       retries: _integer(item['retry_count']),

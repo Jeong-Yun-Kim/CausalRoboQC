@@ -1,4 +1,5 @@
 import os
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -30,11 +31,14 @@ class Settings:
     database_path: Path
     poses_path: Path
     rpf_rules_path: Path
+    analysis_base_url: str = "http://127.0.0.1:9000"
+    analysis_timeout_seconds: float = 3.0
 
 
 def load_settings() -> Settings:
     server_dir = Path(__file__).resolve().parents[1]
     repo_dir = server_dir.parent
+    analysis_timeout = _float_env("ANALYSIS_TIMEOUT_SECONDS", 3.0)
     return Settings(
         serial_port=os.getenv("SERIAL_PORT", "/dev/ttyACM0"),
         baud_rate=int(os.getenv("SERIAL_BAUD_RATE", "115200")),
@@ -52,4 +56,8 @@ def load_settings() -> Settings:
         rpf_rules_path=Path(
             os.getenv("RPF_RULES_PATH", str(server_dir / "config" / "rpf_rules.json"))
         ).expanduser(),
+        analysis_base_url=os.getenv("ANALYSIS_BASE_URL", "http://127.0.0.1:9000"),
+        analysis_timeout_seconds=(
+            analysis_timeout if math.isfinite(analysis_timeout) and analysis_timeout > 0 else 3.0
+        ),
     )

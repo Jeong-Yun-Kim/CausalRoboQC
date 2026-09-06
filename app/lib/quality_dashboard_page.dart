@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'dashboard_theme.dart';
 import 'quality_dashboard_api.dart';
 import 'quality_dashboard_data.dart';
+import 'rpf_analysis_panel.dart';
 
 class QualityDashboardPage extends StatefulWidget {
   const QualityDashboardPage({
@@ -1171,6 +1172,13 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                         ),
                         const SizedBox(height: 10),
                         _buildProductSummary(data, product),
+                        const SizedBox(height: 22),
+                        RpfAnalysisPanel(
+                          product: product,
+                          source: widget.dataSource is RpfAnalysisDataSource
+                              ? widget.dataSource as RpfAnalysisDataSource
+                              : null,
+                        ),
                         const SizedBox(height: 22),
                         Text(
                           '원인 후보',
