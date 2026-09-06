@@ -32,12 +32,12 @@ final class AbnormalEvent {
   const AbnormalEvent({
     required this.name,
     required this.count,
-    required this.cumulativeRatio,
+    required this.rate,
   });
 
   final String name;
   final int count;
-  final double cumulativeRatio;
+  final double rate;
 }
 
 final class RpfStep {
@@ -169,11 +169,10 @@ final class MockQualityDashboardDataSource
       WorkTimePoint(productId: 'P-128', seconds: 12.2),
     ],
     abnormalEvents: [
-      AbnormalEvent(name: '집기 재시도', count: 14, cumulativeRatio: 42.4),
-      AbnormalEvent(name: '작업시간 초과', count: 9, cumulativeRatio: 69.7),
-      AbnormalEvent(name: '배치 실패', count: 5, cumulativeRatio: 84.8),
-      AbnormalEvent(name: '제품 ID 불일치', count: 3, cumulativeRatio: 93.9),
-      AbnormalEvent(name: '작업자 수동 보정', count: 2, cumulativeRatio: 100.0),
+      AbnormalEvent(name: '집기 재시도', count: 3, rate: 2.3),
+      AbnormalEvent(name: '작업시간 초과', count: 1, rate: 0.8),
+      AbnormalEvent(name: '배치 실패', count: 1, rate: 0.8),
+      AbnormalEvent(name: '작업자 수동 보정', count: 1, rate: 0.8),
     ],
     products: [
       ProductRpf(

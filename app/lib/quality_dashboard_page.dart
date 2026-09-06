@@ -113,25 +113,57 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                     '금일 처리 제품',
                     '${data.processedProducts} EA',
                     Icons.inventory_2_outlined,
+                    onTap: () => _showProductList(
+                      data,
+                      title: '금일 처리 제품',
+                      products: data.sortedProducts,
+                    ),
                   ),
                   _KpiItem(
-                    '정상 제품 비율',
+                    '정상 제품',
                     '${_percentage(data.normalProducts, data.processedProducts)}%',
                     Icons.verified_outlined,
                     note: '${data.normalProducts} / ${data.processedProducts}',
                     tone: _QualityTone.good,
+                    onTap: () => _showProductList(
+                      data,
+                      title: '정상 제품',
+                      products: data.sortedProducts
+                          .where(
+                            (product) => product.grade == QualityGrade.normal,
+                          )
+                          .toList(growable: false),
+                    ),
                   ),
                   _KpiItem(
                     '확인 필요',
                     '${data.reviewProducts}건',
                     Icons.manage_search_outlined,
                     tone: _QualityTone.warning,
+                    onTap: () => _showProductList(
+                      data,
+                      title: '확인 필요 제품',
+                      products: data.sortedProducts
+                          .where(
+                            (product) => product.grade == QualityGrade.review,
+                          )
+                          .toList(growable: false),
+                    ),
                   ),
                   _KpiItem(
                     '우선검사',
                     '${data.priorityProducts}건',
                     Icons.priority_high,
                     tone: _QualityTone.danger,
+                    onTap: () => _showProductList(
+                      data,
+                      title: '우선검사 제품',
+                      products: data.sortedProducts
+                          .where(
+                            (product) => product.grade == QualityGrade.priority,
+                          )
+                          .toList(growable: false),
+                    ),
                   ),
                 ],
               ),
@@ -146,22 +178,69 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                     note:
                         '표준 ${data.standardWorkTimeSeconds.toStringAsFixed(1)} s · 표준 대비 ${_signed(data.averageWorkTimeSeconds - data.standardWorkTimeSeconds)} s',
                     tone: _QualityTone.warning,
+                    onTap: () {
+                      final products = [...data.products]..sort(
+                          (left, right) => right.workTimeSeconds
+                              .compareTo(left.workTimeSeconds),
+                        );
+                      _showProductList(
+                        data,
+                        title: '평균 작업시간',
+                        summary:
+                            '평균 ${data.averageWorkTimeSeconds.toStringAsFixed(1)} s · 작업시간 긴 순',
+                        products: products,
+                      );
+                    },
                   ),
                   _KpiItem(
                     '평균 재시도',
                     '${data.averageRetries.toStringAsFixed(2)} 회/제품',
                     Icons.replay_outlined,
+                    onTap: () {
+                      final products = data.products
+                          .where((product) => product.retries > 0)
+                          .toList()
+                        ..sort(
+                          (left, right) =>
+                              right.retries.compareTo(left.retries),
+                        );
+                      _showProductList(
+                        data,
+                        title: '평균 재시도',
+                        summary:
+                            '평균 ${data.averageRetries.toStringAsFixed(2)} 회/제품 · 재시도 많은 순',
+                        products: products,
+                      );
+                    },
                   ),
                   _KpiItem(
                     '공정 이탈률',
                     '${data.processDeviationRate.toStringAsFixed(1)}%',
                     Icons.alt_route_outlined,
                     tone: _QualityTone.warning,
+                    onTap: () => _showProductList(
+                      data,
+                      title: '공정 이탈 제품',
+                      products: data.sortedProducts
+                          .where(
+                            (product) => product.grade != QualityGrade.normal,
+                          )
+                          .toList(growable: false),
+                    ),
                   ),
                   _KpiItem(
                     '작업자 개입',
                     '${data.operatorInterventions}건',
                     Icons.front_hand_outlined,
+                    onTap: () => _showProductList(
+                      data,
+                      title: '작업자 개입 제품',
+                      products: data.sortedProducts
+                          .where(
+                            (product) => product.operatorInterventions > 0,
+                          )
+                          .toList(growable: false),
+                    ),
                   ),
                 ],
               ),
@@ -185,7 +264,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(flex: 6, child: _buildPareto(data)),
+                    Expanded(flex: 6, child: _buildAbnormalEvents(data)),
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 5,
@@ -194,7 +273,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   ],
                 )
               else ...[
-                _buildPareto(data),
+                _buildAbnormalEvents(data),
                 const SizedBox(height: 12),
                 _buildCauseAnalysis(data, selected),
               ],
@@ -366,52 +445,65 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
 
   Widget _buildKpiTile(_KpiItem item, double width) {
     final color = _toneColor(item.tone);
-    return Container(
+    return SizedBox(
       width: width,
-      constraints: const BoxConstraints(minHeight: 92),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: color.withValues(alpha: 0.1),
-            foregroundColor: color,
-            child: Icon(item.icon, size: 20),
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            border: Border.all(color: Theme.of(context).dividerColor),
+            borderRadius: BorderRadius.circular(10),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.label,
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item.value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                if (item.note != null)
-                  Text(
-                    item.note!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall,
+          child: InkWell(
+            onTap: item.onTap,
+            borderRadius: BorderRadius.circular(10),
+            hoverColor: color.withValues(alpha: 0.06),
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 92),
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    backgroundColor: color.withValues(alpha: 0.1),
+                    foregroundColor: color,
+                    child: Icon(item.icon, size: 20),
                   ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.label,
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          item.value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        if (item.note != null)
+                          Text(
+                            item.note!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -566,64 +658,128 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
     );
   }
 
-  Widget _buildPareto(DashboardData data) {
+  Widget _buildAbnormalEvents(DashboardData data) {
     return _section(
-      '이상 이벤트 현황',
+      '이상 이벤트 발생 비율',
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: 18,
-            runSpacing: 8,
-            children: [
-              _legendItem(
-                Theme.of(context).colorScheme.primary,
-                '발생 건수',
-              ),
-              _legendItem(
-                Colors.orange.shade800,
-                '누적 비율',
-              ),
-            ],
+          Text(
+            '전체 처리 제품 중 각 이상이 관측된 제품의 비율입니다.',
+            style: Theme.of(context).textTheme.bodySmall,
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 245,
-            child: CustomPaint(
-              painter: _ParetoChartPainter(
-                events: data.abnormalEvents,
-                barColor: Theme.of(context).colorScheme.primary,
-                lineColor: Colors.orange.shade800,
-                gridColor: Theme.of(context).dividerColor,
-                textColor: Theme.of(context).colorScheme.onSurfaceVariant,
+          const SizedBox(height: 12),
+          if (data.abnormalEvents.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: Text('관측된 이상 이벤트가 없습니다.')),
+            )
+          else
+            ...data.abnormalEvents.map(
+              (event) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _buildAbnormalEventRow(data, event),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAbnormalEventRow(DashboardData data, AbnormalEvent event) {
+    final abnormalColor = Colors.orange.shade800;
+    final normalRate = math.max(0, 100 - event.rate);
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(9),
+        onTap: () => _showProductList(
+          data,
+          title: event.name,
+          summary:
+              '${event.count} / ${data.processedProducts} · 발생률 ${event.rate.toStringAsFixed(1)}%',
+          products: data.sortedProducts
+              .where((product) => product.observations.contains(event.name))
+              .toList(growable: false),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(11),
+          decoration: BoxDecoration(
+            border: Border.all(color: Theme.of(context).dividerColor),
+            borderRadius: BorderRadius.circular(9),
           ),
-          const Divider(),
-          ...data.abnormalEvents.map(
-            (event) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
                 children: [
-                  Expanded(child: Text(event.name)),
-                  Text(
-                    '${event.count}건',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(width: 14),
-                  SizedBox(
-                    width: 66,
+                  Expanded(
                     child: Text(
-                      '누적 ${event.cumulativeRatio.toStringAsFixed(1)}%',
-                      textAlign: TextAlign.end,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      event.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
+                  ),
+                  Text('${event.count} / ${data.processedProducts}'),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 54,
+                    child: Text(
+                      '${event.rate.toStringAsFixed(1)}%',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                        color: abnormalColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, size: 18),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: SizedBox(
+                  height: 10,
+                  child: Row(
+                    children: [
+                      if (normalRate > 0)
+                        Expanded(
+                          flex: math.max(1, (normalRate * 10).round()),
+                          child: ColoredBox(
+                            color: Colors.green.shade700.withValues(alpha: 0.7),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                      if (event.rate > 0)
+                        Expanded(
+                          flex: math.max(1, (event.rate * 10).round()),
+                          child: ColoredBox(
+                            color: abnormalColor,
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 5),
+              Row(
+                children: [
+                  Text(
+                    '정상 ${normalRate.toStringAsFixed(1)}%',
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                  const Spacer(),
+                  Text(
+                    '이상 ${event.rate.toStringAsFixed(1)}%',
+                    style: Theme.of(context).textTheme.labelSmall,
                   ),
                 ],
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -825,6 +981,155 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _showProductList(
+    DashboardData data, {
+    required String title,
+    required List<ProductRpf> products,
+    String? summary,
+  }) async {
+    ProductRpf? selectedProduct;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        final media = MediaQuery.sizeOf(dialogContext);
+        return Dialog(
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: media.width < 700 ? 12 : 40,
+            vertical: 24,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 900,
+              maxHeight: media.height * 0.88,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 10, 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: Theme.of(dialogContext)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              summary ?? '제품 ${products.length}건',
+                              style:
+                                  Theme.of(dialogContext).textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '닫기',
+                        onPressed: () => Navigator.pop(dialogContext),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                if (products.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 54, horizontal: 24),
+                    child: Column(
+                      children: [
+                        Icon(Icons.inbox_outlined, size: 38),
+                        SizedBox(height: 10),
+                        Text('해당하는 제품이 없습니다.'),
+                      ],
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: ListView.separated(
+                      padding: const EdgeInsets.all(12),
+                      itemCount: products.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final product = products[index];
+                        final reasons = product.observations.isEmpty
+                            ? '-'
+                            : product.observations.join(', ');
+                        return Material(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerLowest,
+                          shape: RoundedRectangleBorder(
+                            side: BorderSide(
+                              color: Theme.of(context).dividerColor,
+                            ),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () {
+                              selectedProduct = product;
+                              Navigator.pop(dialogContext);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(13),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          product.id,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      _gradeBadge(product.grade, compact: true),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.chevron_right, size: 18),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 7),
+                                  Text(
+                                    '작업시간 ${product.workTimeSeconds.toStringAsFixed(1)}s · '
+                                    '재시도 ${product.retries}회',
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '판정 근거: $reasons',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style:
+                                        Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (!mounted || selectedProduct == null) return;
+    setState(() => _selectedProductId = selectedProduct!.id);
+    await _showProductDetail(data, selectedProduct!);
   }
 
   Future<void> _showProductDetail(
@@ -1145,6 +1450,7 @@ class _KpiItem {
     this.icon, {
     this.note,
     this.tone = _QualityTone.neutral,
+    required this.onTap,
   });
 
   final String label;
@@ -1152,6 +1458,7 @@ class _KpiItem {
   final IconData icon;
   final String? note;
   final _QualityTone tone;
+  final VoidCallback onTap;
 }
 
 class _WorkTimeChartPainter extends CustomPainter {
@@ -1275,130 +1582,6 @@ class _WorkTimeChartPainter extends CustomPainter {
         oldDelegate.standard != standard ||
         oldDelegate.lineColor != lineColor ||
         oldDelegate.standardColor != standardColor;
-  }
-}
-
-class _ParetoChartPainter extends CustomPainter {
-  const _ParetoChartPainter({
-    required this.events,
-    required this.barColor,
-    required this.lineColor,
-    required this.gridColor,
-    required this.textColor,
-  });
-
-  final List<AbnormalEvent> events;
-  final Color barColor;
-  final Color lineColor;
-  final Color gridColor;
-  final Color textColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (events.isEmpty || size.width <= 100 || size.height <= 100) return;
-    const left = 34.0;
-    const right = 38.0;
-    const top = 16.0;
-    const bottom = 46.0;
-    final plot =
-        Rect.fromLTRB(left, top, size.width - right, size.height - bottom);
-    final maximumCount =
-        math.max(1, events.map((event) => event.count).reduce(math.max));
-    final groupWidth = plot.width / events.length;
-
-    final gridPaint = Paint()
-      ..color = gridColor
-      ..strokeWidth = 1;
-    for (var index = 0; index <= 4; index++) {
-      final lineY = plot.bottom - plot.height * index / 4;
-      canvas.drawLine(
-          Offset(plot.left, lineY), Offset(plot.right, lineY), gridPaint);
-      _paintText(
-        canvas,
-        '${(maximumCount * index / 4).round()}',
-        Offset(0, lineY - 7),
-        width: left - 6,
-        color: textColor,
-        align: TextAlign.right,
-      );
-      _paintText(
-        canvas,
-        '${index * 25}%',
-        Offset(plot.right + 4, lineY - 7),
-        width: right - 4,
-        color: textColor,
-      );
-    }
-
-    final cumulativePath = Path();
-    for (var index = 0; index < events.length; index++) {
-      final event = events[index];
-      final centerX = plot.left + groupWidth * (index + 0.5);
-      final barHeight = plot.height * event.count / maximumCount;
-      final barRect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          centerX - groupWidth * 0.27,
-          plot.bottom - barHeight,
-          groupWidth * 0.54,
-          barHeight,
-        ),
-        const Radius.circular(4),
-      );
-      canvas.drawRRect(
-        barRect,
-        Paint()..color = barColor.withValues(alpha: 0.82),
-      );
-      _paintText(
-        canvas,
-        '${event.count}',
-        Offset(centerX - groupWidth / 2, plot.bottom - barHeight - 18),
-        width: groupWidth,
-        color: textColor,
-        align: TextAlign.center,
-      );
-
-      final cumulativePoint = Offset(
-        centerX,
-        plot.bottom - plot.height * event.cumulativeRatio / 100,
-      );
-      if (index == 0) {
-        cumulativePath.moveTo(cumulativePoint.dx, cumulativePoint.dy);
-      } else {
-        cumulativePath.lineTo(cumulativePoint.dx, cumulativePoint.dy);
-      }
-      _paintText(
-        canvas,
-        event.name,
-        Offset(centerX - groupWidth / 2 + 2, plot.bottom + 7),
-        width: groupWidth - 4,
-        color: textColor,
-        align: TextAlign.center,
-        maxLines: 2,
-      );
-    }
-    canvas.drawPath(
-      cumulativePath,
-      Paint()
-        ..color = lineColor
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.2
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-    for (var index = 0; index < events.length; index++) {
-      final point = Offset(
-        plot.left + groupWidth * (index + 0.5),
-        plot.bottom - plot.height * events[index].cumulativeRatio / 100,
-      );
-      canvas.drawCircle(point, 3.5, Paint()..color = lineColor);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _ParetoChartPainter oldDelegate) {
-    return oldDelegate.events != events ||
-        oldDelegate.barColor != barColor ||
-        oldDelegate.lineColor != lineColor;
   }
 }
 

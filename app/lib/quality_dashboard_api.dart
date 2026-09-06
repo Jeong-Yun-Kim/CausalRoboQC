@@ -60,7 +60,7 @@ final class ApiQualityDashboardDataSource
     );
     final reasonCounts = <String, int>{};
     for (final product in products) {
-      for (final reason in product.observations) {
+      for (final reason in product.observations.toSet()) {
         reasonCounts.update(reason, (count) => count + 1, ifAbsent: () => 1);
       }
     }
@@ -69,16 +69,11 @@ final class ApiQualityDashboardDataSource
         final byCount = right.value.compareTo(left.value);
         return byCount != 0 ? byCount : left.key.compareTo(right.key);
       });
-    final totalReasons =
-        sortedReasons.fold<int>(0, (sum, item) => sum + item.value);
-    var cumulative = 0;
     final abnormalEvents = sortedReasons.map((item) {
-      cumulative += item.value;
       return AbnormalEvent(
         name: item.key,
         count: item.value,
-        cumulativeRatio:
-            totalReasons == 0 ? 0 : cumulative * 100 / totalReasons,
+        rate: processed == 0 ? 0 : item.value * 100 / processed,
       );
     }).toList(growable: false);
     final averageWorkTime = processed == 0 ? 0.0 : totalWorkTime / processed;
