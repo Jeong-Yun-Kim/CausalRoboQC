@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'dashboard_theme.dart';
 import 'quality_dashboard_api.dart';
 import 'quality_dashboard_data.dart';
 
@@ -69,20 +70,32 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
         if (data == null) {
           return ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: DashboardTheme.pagePadding(constraints.maxWidth),
             children: [
-              SizedBox(
-                height: math.max(240, constraints.maxHeight - 32),
+              _buildPageHeading(),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: math.max(240, constraints.maxHeight - 200),
+                ),
                 child: Center(
                   child: _loadError == null
                       ? const CircularProgressIndicator()
                       : Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.error_outline, size: 40),
-                            const SizedBox(height: 10),
-                            Text('품질 데이터를 불러오지 못했습니다.\n$_loadError'),
-                            const SizedBox(height: 12),
+                            const DashboardEmptyState(
+                              icon: Icons.cloud_off_outlined,
+                              title: '품질 데이터를 불러오지 못했습니다',
+                              description: '서버 연결을 확인하고 다시 시도해 주세요.',
+                            ),
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 24),
+                              child: Text('$_loadError',
+                                  textAlign: TextAlign.center,
+                                  style: Theme.of(context).textTheme.bodySmall),
+                            ),
+                            const SizedBox(height: 20),
                             OutlinedButton.icon(
                               onPressed: _loadData,
                               icon: const Icon(Icons.refresh),
@@ -102,10 +115,11 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
           onRefresh: _loadData,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: DashboardTheme.pagePadding(constraints.maxWidth),
             children: [
+              _buildPageHeading(),
               _buildOverviewBanner(data),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               _buildKpiSection(
                 '현재 전체 품질 상태',
                 [
@@ -167,7 +181,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               _buildKpiSection(
                 '공정 상태',
                 [
@@ -244,28 +258,28 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               if (wide)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(flex: 4, child: _buildClassification(data)),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 20),
                     Expanded(flex: 7, child: _buildWorkTimeTrend(data)),
                   ],
                 )
               else ...[
                 _buildClassification(data),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
                 _buildWorkTimeTrend(data),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               if (wide)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(flex: 6, child: _buildAbnormalEvents(data)),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 20),
                     Expanded(
                       flex: 5,
                       child: _buildCauseAnalysis(data, selected),
@@ -274,10 +288,10 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                 )
               else ...[
                 _buildAbnormalEvents(data),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
                 _buildCauseAnalysis(data, selected),
               ],
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               _buildProductTable(data),
               const SizedBox(height: 8),
               if (data.isMock)
@@ -295,21 +309,22 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
     );
   }
 
+  Widget _buildPageHeading() => DashboardHeading(
+        eyebrow: 'QUALITY INSIGHTS',
+        title: '품질관리',
+        description: '제품의 공정 기록을 살펴보고, 확인이 필요한 제품을 빠르게 찾으세요.',
+        trailing: OutlinedButton.icon(
+          onPressed: _loadData,
+          icon: const Icon(Icons.refresh_rounded, size: 17),
+          label: const Text('품질 데이터 새로고침'),
+        ),
+      );
+
   Widget _buildOverviewBanner(DashboardData data) {
     final inspectionCount = data.reviewProducts + data.priorityProducts;
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xff17263a),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.all(26),
+      decoration: DashboardTheme.bannerDecoration,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final heading = Column(
@@ -350,15 +365,17 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   ],
                 ],
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 14),
               Text(
-                '금일 확인 대상 $inspectionCount건 · 우선검사 ${data.priorityProducts}건',
+                constraints.maxWidth < 540
+                    ? '금일 확인 대상 $inspectionCount건\n우선검사 ${data.priorityProducts}건'
+                    : '금일 확인 대상 $inspectionCount건 · 우선검사 ${data.priorityProducts}건',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
                     ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 8),
               const Text(
                 '제품별 Robot-Process Fingerprint를 기준으로 검사 우선순위와 원인 후보를 확인합니다.',
                 style: TextStyle(color: Color(0xffb9c5d2)),
@@ -421,90 +438,37 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
   }
 
   Widget _buildKpiSection(String title, List<_KpiItem> items) {
-    return _section(
-      title,
-      LayoutBuilder(
-        builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 700
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 14),
+        LayoutBuilder(builder: (context, constraints) {
+          final columns = constraints.maxWidth >= 850
               ? 4
-              : constraints.maxWidth >= 430
+              : constraints.maxWidth >= 320
                   ? 2
                   : 1;
-          final width = (constraints.maxWidth - (12 * (columns - 1))) / columns;
+          final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
           return Wrap(
             spacing: 12,
             runSpacing: 12,
             children: items
-                .map((item) => _buildKpiTile(item, width))
+                .map((item) => SizedBox(
+                      width: width,
+                      child: DashboardMetric(
+                        label: item.label,
+                        value: item.value,
+                        icon: item.icon,
+                        note: item.note,
+                        color: _toneColor(item.tone),
+                        onTap: item.onTap,
+                      ),
+                    ))
                 .toList(growable: false),
           );
-        },
-      ),
-    );
-  }
-
-  Widget _buildKpiTile(_KpiItem item, double width) {
-    final color = _toneColor(item.tone);
-    return SizedBox(
-      width: width,
-      child: Material(
-        color: Colors.transparent,
-        child: Ink(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerLowest,
-            border: Border.all(color: Theme.of(context).dividerColor),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: InkWell(
-            onTap: item.onTap,
-            borderRadius: BorderRadius.circular(10),
-            hoverColor: color.withValues(alpha: 0.06),
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 92),
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: color.withValues(alpha: 0.1),
-                    foregroundColor: color,
-                    child: Icon(item.icon, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.label,
-                          style: Theme.of(context).textTheme.labelMedium,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          item.value,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        if (item.note != null)
-                          Text(
-                            item.note!,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+        }),
+      ],
     );
   }
 
@@ -513,12 +477,12 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
       (
         label: '정상',
         count: data.normalProducts,
-        color: Colors.green.shade700,
+        color: DashboardTheme.success,
       ),
       (
         label: '확인 필요',
         count: data.reviewProducts,
-        color: Colors.orange.shade800,
+        color: DashboardTheme.warning,
       ),
       (
         label: '우선검사',
@@ -539,23 +503,29 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
           ),
           const SizedBox(height: 14),
           ClipRRect(
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(12),
             child: SizedBox(
-              height: 34,
-              child: Row(
-                children: groups
-                    .map(
-                      (group) => Expanded(
-                        flex: math.max(1, group.count),
-                        child: Tooltip(
-                          message:
-                              '${group.label} ${group.count}건 · ${_percentage(group.count, data.processedProducts)}%',
-                          child: ColoredBox(color: group.color),
-                        ),
-                      ),
-                    )
-                    .toList(growable: false),
-              ),
+              height: 18,
+              child: data.processedProducts == 0
+                  ? const ColoredBox(color: DashboardTheme.border)
+                  : Row(
+                      children: groups
+                          .where((group) => group.count > 0)
+                          .map(
+                            (group) => Expanded(
+                              flex: math.max(1, group.count),
+                              child: Tooltip(
+                                message:
+                                    '${group.label} ${group.count}건 · ${_percentage(group.count, data.processedProducts)}%',
+                                child: ColoredBox(
+                                  color: group.color,
+                                  child: const SizedBox.expand(),
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
             ),
           ),
           const SizedBox(height: 16),
@@ -611,7 +581,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                 '실제 작업시간',
               ),
               _legendItem(
-                Colors.orange.shade800,
+                DashboardTheme.warning,
                 '표준 ${data.standardWorkTimeSeconds.toStringAsFixed(1)}초',
                 dashed: true,
               ),
@@ -620,16 +590,19 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
           const SizedBox(height: 10),
           SizedBox(
             height: 270,
-            child: CustomPaint(
-              painter: _WorkTimeChartPainter(
-                points: data.workTimeTrend,
-                standard: data.standardWorkTimeSeconds,
-                lineColor: Theme.of(context).colorScheme.primary,
-                standardColor: Colors.orange.shade800,
-                gridColor: Theme.of(context).dividerColor,
-                textColor: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
+            child: data.workTimeTrend.isEmpty
+                ? const DashboardEmptyState(
+                    icon: Icons.show_chart_rounded, title: '작업시간 기록을 기다리고 있습니다')
+                : CustomPaint(
+                    painter: _WorkTimeChartPainter(
+                      points: data.workTimeTrend,
+                      standard: data.standardWorkTimeSeconds,
+                      lineColor: Theme.of(context).colorScheme.primary,
+                      standardColor: DashboardTheme.warning,
+                      gridColor: Theme.of(context).dividerColor,
+                      textColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -670,10 +643,8 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
           ),
           const SizedBox(height: 12),
           if (data.abnormalEvents.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: Text('관측된 이상 이벤트가 없습니다.')),
-            )
+            const DashboardEmptyState(
+                icon: Icons.check_circle_outline, title: '관측된 이상 이벤트가 없습니다')
           else
             ...data.abnormalEvents.map(
               (event) => Padding(
@@ -687,12 +658,12 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
   }
 
   Widget _buildAbnormalEventRow(DashboardData data, AbnormalEvent event) {
-    final abnormalColor = Colors.orange.shade800;
+    final abnormalColor = DashboardTheme.warning;
     final normalRate = math.max(0, 100 - event.rate);
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(12),
         onTap: () => _showProductList(
           data,
           title: event.name,
@@ -706,7 +677,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
           padding: const EdgeInsets.all(11),
           decoration: BoxDecoration(
             border: Border.all(color: Theme.of(context).dividerColor),
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -747,7 +718,8 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                         Expanded(
                           flex: math.max(1, (normalRate * 10).round()),
                           child: ColoredBox(
-                            color: Colors.green.shade700.withValues(alpha: 0.7),
+                            color:
+                                DashboardTheme.success.withValues(alpha: 0.7),
                             child: const SizedBox.expand(),
                           ),
                         ),
@@ -790,7 +762,10 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
       product == null
           ? const SizedBox(
               height: 240,
-              child: Center(child: Text('선택할 제품이 없습니다.')),
+              child: DashboardEmptyState(
+                  icon: Icons.manage_search_outlined,
+                  title: '분석할 제품이 없습니다',
+                  description: '제품별 RPF가 수집되면 원인 후보를 확인할 수 있습니다.'),
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -838,11 +813,11 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade800.withValues(alpha: 0.06),
+                    color: DashboardTheme.warning.withValues(alpha: 0.06),
                     border: Border.all(
-                      color: Colors.orange.shade800.withValues(alpha: 0.18),
+                      color: DashboardTheme.warning.withValues(alpha: 0.18),
                     ),
-                    borderRadius: BorderRadius.circular(9),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -926,10 +901,10 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
           ),
           const SizedBox(height: 10),
           if (products.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: Text('표시할 RPF가 없습니다.')),
-            )
+            const DashboardEmptyState(
+                icon: Icons.inventory_2_outlined,
+                title: '아직 수집된 RPF가 없습니다',
+                description: '작업이 완료되면 제품별 품질 기록이 표시됩니다.')
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -1070,7 +1045,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                             side: BorderSide(
                               color: Theme.of(context).dividerColor,
                             ),
-                            borderRadius: BorderRadius.circular(9),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                           clipBehavior: Clip.antiAlias,
                           child: InkWell(
@@ -1265,7 +1240,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
         children: List.generate(product.timeline.length, (index) {
           final step = product.timeline[index];
           final color =
-              step.isIssue ? Colors.orange.shade800 : Colors.green.shade700;
+              step.isIssue ? DashboardTheme.warning : DashboardTheme.success;
           return Row(
             children: [
               Container(
@@ -1275,7 +1250,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.06),
                   border: Border.all(color: color.withValues(alpha: 0.35)),
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1351,7 +1326,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                       context,
                     ).colorScheme.surfaceContainerLowest,
                     border: Border.all(color: Theme.of(context).dividerColor),
-                    borderRadius: BorderRadius.circular(9),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1399,25 +1374,21 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
   }
 
   Widget _section(String title, Widget child) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 14),
-            child,
-          ],
-        ),
-      ),
-    );
+    final icon = switch (title) {
+      '제품 분류 현황' => Icons.donut_small_outlined,
+      '제품별 작업시간 추이' => Icons.show_chart_rounded,
+      '이상 이벤트 발생 비율' => Icons.bar_chart_rounded,
+      '원인 후보 분석' => Icons.manage_search_outlined,
+      '검사 대상 제품 목록' => Icons.inventory_2_outlined,
+      _ => Icons.analytics_outlined,
+    };
+    return DashboardSection(title: title, icon: icon, child: child);
   }
 
   Color _gradeColor(QualityGrade grade) {
     return switch (grade) {
-      QualityGrade.normal => Colors.green.shade700,
-      QualityGrade.review => Colors.orange.shade800,
+      QualityGrade.normal => DashboardTheme.success,
+      QualityGrade.review => DashboardTheme.warning,
       QualityGrade.priority => Theme.of(context).colorScheme.error,
     };
   }
@@ -1425,8 +1396,8 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
   Color _toneColor(_QualityTone tone) {
     return switch (tone) {
       _QualityTone.neutral => Theme.of(context).colorScheme.primary,
-      _QualityTone.good => Colors.green.shade700,
-      _QualityTone.warning => Colors.orange.shade800,
+      _QualityTone.good => DashboardTheme.success,
+      _QualityTone.warning => DashboardTheme.warning,
       _QualityTone.danger => Theme.of(context).colorScheme.error,
     };
   }
@@ -1537,6 +1508,22 @@ class _WorkTimeChartPainter extends CustomPainter {
         path.lineTo(point.dx, point.dy);
       }
     }
+    final area = Path.from(path)
+      ..lineTo(x(points.length - 1), plot.bottom)
+      ..lineTo(x(0), plot.bottom)
+      ..close();
+    canvas.drawPath(
+      area,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            lineColor.withValues(alpha: 0.18),
+            lineColor.withValues(alpha: 0.01)
+          ],
+        ).createShader(plot),
+    );
     canvas.drawPath(
       path,
       Paint()
@@ -1581,7 +1568,9 @@ class _WorkTimeChartPainter extends CustomPainter {
     return oldDelegate.points != points ||
         oldDelegate.standard != standard ||
         oldDelegate.lineColor != lineColor ||
-        oldDelegate.standardColor != standardColor;
+        oldDelegate.standardColor != standardColor ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.textColor != textColor;
   }
 }
 

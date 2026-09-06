@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'quality_dashboard_page.dart';
+import 'dashboard_theme.dart';
 
 const _configuredApiBase = String.fromEnvironment(
   'API_BASE_URL',
@@ -24,11 +25,7 @@ class RobotArmApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'CausalRoboQC',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff285ea8)),
-        scaffoldBackgroundColor: const Color(0xfff4f6f9),
-        useMaterial3: true,
-      ),
+      theme: DashboardTheme.light,
       home: const DashboardPage(),
     );
   }
@@ -802,7 +799,6 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final desktopNavigation = width >= 900;
-    final extendedNavigation = width >= 1200;
     final title = switch (_pageIndex) {
       0 => '대시보드',
       1 => '로봇 제어',
@@ -810,74 +806,23 @@ class _DashboardPageState extends State<DashboardPage> {
     };
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('CausalRoboQC · $title'),
-        actions: [
-          IconButton(
-            tooltip: 'Emergency Stop',
-            color: Theme.of(context).colorScheme.error,
-            onPressed: !_serialReady || _safetyBusy
-                ? null
-                : () => _safetyControl('estop', 'Emergency Stop 작동'),
-            icon: const Icon(Icons.report),
-          ),
-          IconButton(
-            tooltip: '새로고침',
-            onPressed: _polling ? null : () => _refresh(full: true),
-            icon: const Icon(Icons.refresh),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Row(
+      body: SafeArea(
+          child: Row(
         children: [
-          if (desktopNavigation)
-            NavigationRail(
-              extended: extendedNavigation,
-              minExtendedWidth: 190,
-              selectedIndex: _pageIndex,
-              onDestinationSelected: (index) {
-                setState(() => _pageIndex = index);
-              },
-              labelType: extendedNavigation
-                  ? NavigationRailLabelType.none
-                  : NavigationRailLabelType.all,
-              leading: Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 16),
-                child: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                  child: const Icon(Icons.precision_manufacturing),
-                ),
-              ),
-              destinations: const [
-                NavigationRailDestination(
-                  icon: Icon(Icons.dashboard_outlined),
-                  selectedIcon: Icon(Icons.dashboard),
-                  label: Text('대시보드'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.tune_outlined),
-                  selectedIcon: Icon(Icons.tune),
-                  label: Text('로봇 제어'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.fact_check_outlined),
-                  selectedIcon: Icon(Icons.fact_check),
-                  label: Text('품질관리'),
-                ),
-              ],
-            ),
-          if (desktopNavigation) const VerticalDivider(width: 1),
+          if (desktopNavigation) _buildSidebar(),
           Expanded(
-            child: switch (_pageIndex) {
-              0 => _buildDashboardPage(),
-              1 => _buildRobotControlPage(),
-              _ => const QualityDashboardPage(),
-            },
+            child: Column(children: [
+              _buildTopBar(title, desktopNavigation),
+              Expanded(
+                  child: switch (_pageIndex) {
+                0 => _buildDashboardPage(),
+                1 => _buildRobotControlPage(),
+                _ => const QualityDashboardPage(),
+              }),
+            ]),
           ),
         ],
-      ),
+      )),
       bottomNavigationBar: desktopNavigation
           ? null
           : NavigationBar(
@@ -906,6 +851,200 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  Widget _buildSidebar() {
+    const destinations = [
+      (Icons.space_dashboard_outlined, '대시보드', 'Overview'),
+      (Icons.tune_rounded, '로봇 제어', 'Robot control'),
+      (Icons.fact_check_outlined, '품질관리', 'Quality insights'),
+    ];
+    return Container(
+      width: 224,
+      color: DashboardTheme.navy,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(22, 30, 18, 36),
+          child: Row(children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                  color: const Color(0xff2dd4bf).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(11)),
+              child: const Icon(Icons.precision_manufacturing_outlined,
+                  color: Color(0xff68ddd0), size: 23),
+            ),
+            const SizedBox(width: 10),
+            const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('CausalRoboQC',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.5)),
+                  SizedBox(height: 3),
+                  Text('ROBOT OPERATIONS',
+                      style: TextStyle(
+                          color: Color(0xff91a9b8),
+                          fontSize: 8,
+                          letterSpacing: 1.6)),
+                ]),
+          ]),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(26, 0, 20, 14),
+          child: Text('WORKSPACE',
+              style: TextStyle(
+                  color: Color(0xff829aa9),
+                  fontSize: 10,
+                  letterSpacing: 1.6,
+                  fontWeight: FontWeight.w600)),
+        ),
+        Expanded(
+            child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          children: List.generate(destinations.length, (index) {
+            final item = destinations[index];
+            final selected = index == _pageIndex;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Material(
+                color: selected ? const Color(0xff244554) : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                child: ListTile(
+                  selected: selected,
+                  selectedTileColor: Colors.transparent,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                  leading: Icon(item.$1,
+                      size: 21,
+                      color: selected
+                          ? const Color(0xff75e3d6)
+                          : const Color(0xff91a9b8)),
+                  title: Text(item.$2,
+                      style: TextStyle(
+                          color:
+                              selected ? Colors.white : const Color(0xffc0cfd8),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600)),
+                  subtitle: Text(item.$3,
+                      style: const TextStyle(
+                          color: Color(0xff91a9b8), fontSize: 10)),
+                  trailing: selected
+                      ? Container(
+                          width: 5,
+                          height: 5,
+                          decoration: const BoxDecoration(
+                              color: Color(0xff75e3d6), shape: BoxShape.circle))
+                      : null,
+                  onTap: () => setState(() => _pageIndex = index),
+                ),
+              ),
+            );
+          }),
+        )),
+        Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xff34505f)),
+              borderRadius: BorderRadius.circular(12)),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(
+                  _backendOnline
+                      ? Icons.cloud_done_outlined
+                      : Icons.cloud_off_outlined,
+                  size: 17,
+                  color: const Color(0xffa9c2ce)),
+              const SizedBox(width: 8),
+              Text(_backendOnline ? '서버 연결됨' : '서버 연결 대기',
+                  style:
+                      const TextStyle(color: Color(0xffd3e1e8), fontSize: 12)),
+            ]),
+            const SizedBox(height: 7),
+            const Text('6-AXIS ROBOT ARM',
+                style: TextStyle(
+                    color: Color(0xff829aa9), fontSize: 9, letterSpacing: 1.1)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildTopBar(String title, bool desktop) {
+    return Container(
+      height: 72,
+      padding: EdgeInsets.symmetric(horizontal: desktop ? 28 : 16),
+      decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: DashboardTheme.border))),
+      child: Row(children: [
+        if (desktop) ...[
+          const Text('워크스페이스',
+              style: TextStyle(color: DashboardTheme.muted, fontSize: 12)),
+          const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              child: Icon(Icons.chevron_right,
+                  size: 16, color: DashboardTheme.muted)),
+        ],
+        Expanded(
+            child: Text(desktop ? title : 'CausalRoboQC',
+                style: const TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w700))),
+        if (MediaQuery.sizeOf(context).width >= 600) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+                color: DashboardTheme.background,
+                borderRadius: BorderRadius.circular(20)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                      color: _socketOnline
+                          ? DashboardTheme.success
+                          : DashboardTheme.warning,
+                      shape: BoxShape.circle)),
+              const SizedBox(width: 7),
+              Text(_socketOnline ? '실시간 연결' : '연결 대기',
+                  style: const TextStyle(
+                      fontSize: 11, color: DashboardTheme.muted)),
+            ]),
+          ),
+          const SizedBox(width: 12),
+        ],
+        IconButton(
+          tooltip: '새로고침',
+          onPressed: _polling ? null : () => _refresh(full: true),
+          icon: const Icon(Icons.refresh_rounded, size: 20),
+        ),
+        const SizedBox(width: 8),
+        Tooltip(
+          message: 'Emergency Stop',
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: DashboardTheme.danger,
+              side: BorderSide(
+                  color: DashboardTheme.danger
+                      .withValues(alpha: _serialReady ? 0.4 : 0.15)),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+            ),
+            onPressed: !_serialReady || _safetyBusy
+                ? null
+                : () => _safetyControl('estop', 'Emergency Stop 작동'),
+            icon: const Icon(Icons.stop_circle_outlined, size: 18),
+            label: const Text('E-STOP',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+          ),
+        ),
+      ]),
+    );
+  }
+
   Widget _buildRobotControlPage() {
     return RefreshIndicator(
       onRefresh: () => _refresh(full: true),
@@ -914,36 +1053,41 @@ class _DashboardPageState extends State<DashboardPage> {
           final wide = constraints.maxWidth >= 1050;
           final left = <Widget>[
             _buildReadiness(),
-            const SizedBox(height: 12),
-            _buildCalibrationReadiness(),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             _buildControls(),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+            _buildCalibrationReadiness(),
+            const SizedBox(height: 20),
             _buildJoints(),
           ];
           final right = <Widget>[
             _buildPoses(),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
             _buildHistory(),
           ];
           return ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: DashboardTheme.pagePadding(constraints.maxWidth),
             children: [
+              const DashboardHeading(
+                eyebrow: 'ROBOT CONTROL',
+                title: '로봇 제어',
+                description: '실행 준비부터 자세 조정까지, 로봇팔의 모든 동작을 관리하세요.',
+              ),
               _buildConnectionBanner(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               if (wide)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(flex: 6, child: Column(children: left)),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 20),
                     Expanded(flex: 5, child: Column(children: right)),
                   ],
                 )
               else ...[
                 ...left,
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
                 ...right,
               ],
             ],
@@ -961,30 +1105,40 @@ class _DashboardPageState extends State<DashboardPage> {
           final wide = constraints.maxWidth >= 1050;
           return ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
+            padding: DashboardTheme.pagePadding(constraints.maxWidth),
             children: [
+              DashboardHeading(
+                eyebrow: 'OPERATIONS OVERVIEW',
+                title: '대시보드',
+                description: '로봇의 현재 상태와 작업 흐름을 한눈에 확인하세요.',
+                trailing: OutlinedButton.icon(
+                  onPressed: () => setState(() => _pageIndex = 1),
+                  icon: const Icon(Icons.tune_rounded, size: 17),
+                  label: const Text('로봇 제어'),
+                ),
+              ),
               _buildDashboardBanner(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               _buildStatusRibbon(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               _buildRunKpis(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               _buildSequenceProgress(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               _buildJointSummary(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
               if (wide)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(flex: 5, child: _buildRecentRuns()),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 20),
                     Expanded(flex: 6, child: _buildDashboardEvents()),
                   ],
                 )
               else ...[
                 _buildRecentRuns(),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
                 _buildDashboardEvents(),
               ],
             ],
@@ -1027,18 +1181,8 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xff17263a),
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.all(26),
+      decoration: DashboardTheme.bannerDecoration,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final summary = Wrap(
@@ -1082,7 +1226,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   letterSpacing: 1.2,
                 ),
               ),
-              const SizedBox(height: 7),
+              const SizedBox(height: 14),
               Text(
                 heading,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -1090,7 +1234,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       fontWeight: FontWeight.w700,
                     ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 8),
               Text(
                 description,
                 style: const TextStyle(color: Color(0xffb9c5d2)),
@@ -1117,7 +1261,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Widget _darkMetric(String label, String value) {
     return SizedBox(
-      width: 86,
+      width: 96,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1175,19 +1319,18 @@ class _DashboardPageState extends State<DashboardPage> {
         padding: const EdgeInsets.all(10),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 1250
+            final columns = constraints.maxWidth >= 960
                 ? 6
-                : constraints.maxWidth >= 700
-                    ? 4
+                : constraints.maxWidth >= 600
+                    ? 3
                     : 2;
-            return GridView.count(
-              crossAxisCount: columns,
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: columns == 2 ? 2.1 : 1.75,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: cells,
+            final width = (constraints.maxWidth - 8 * (columns - 1)) / columns;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: cells
+                  .map((cell) => SizedBox(width: width, child: cell))
+                  .toList(),
             );
           },
         ),
@@ -1204,14 +1347,14 @@ class _DashboardPageState extends State<DashboardPage> {
     final color = danger
         ? Theme.of(context).colorScheme.error
         : good
-            ? Colors.green.shade700
-            : Colors.orange.shade800;
+            ? DashboardTheme.success
+            : DashboardTheme.warning;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.06),
         border: Border.all(color: color.withValues(alpha: 0.18)),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1267,31 +1410,35 @@ class _DashboardPageState extends State<DashboardPage> {
     final repeatRuns = recent.where((run) => run['repeat'] == true).length;
     final completionRate =
         recent.isEmpty ? '0%' : '${(completed * 100 / recent.length).round()}%';
-    return _section(
-      '최근 30 Run 요약',
-      LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth >= 700
-              ? (constraints.maxWidth - 36) / 4
-              : (constraints.maxWidth - 12) / 2;
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _kpiTile('전체 Run', '${recent.length}', Icons.history, width),
-              _kpiTile('완료', '$completed', Icons.task_alt, width),
-              _kpiTile('중단 / 오류', '$interrupted', Icons.error_outline, width),
-              _kpiTile(
-                '완료율',
-                completionRate,
-                Icons.donut_small,
-                width,
-                note: '반복 $repeatRuns',
-              ),
-            ],
-          );
-        },
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('최근 30 Run 요약', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth >= 700
+                ? (constraints.maxWidth - 36) / 4
+                : (constraints.maxWidth - 12) / 2;
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                _kpiTile('전체 Run', '${recent.length}', Icons.history, width),
+                _kpiTile('완료', '$completed', Icons.task_alt, width),
+                _kpiTile('중단 / 오류', '$interrupted', Icons.error_outline, width),
+                _kpiTile(
+                  '완료율',
+                  completionRate,
+                  Icons.donut_small,
+                  width,
+                  note: '반복 $repeatRuns',
+                ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -1302,42 +1449,16 @@ class _DashboardPageState extends State<DashboardPage> {
     double width, {
     String? note,
   }) {
-    final color = Theme.of(context).colorScheme.primary;
-    return Container(
+    final color = switch (label) {
+      '완료' => DashboardTheme.success,
+      '중단 / 오류' => DashboardTheme.danger,
+      '완료율' => const Color(0xff6c6ba9),
+      _ => DashboardTheme.primary,
+    };
+    return SizedBox(
       width: width,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLowest,
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            backgroundColor: color.withValues(alpha: 0.1),
-            foregroundColor: color,
-            child: Icon(icon, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: Theme.of(context).textTheme.labelMedium),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                if (note != null)
-                  Text(note, style: Theme.of(context).textTheme.labelSmall),
-              ],
-            ),
-          ),
-        ],
-      ),
+      child: DashboardMetric(
+          label: label, value: value, icon: icon, color: color, note: note),
     );
   }
 
@@ -1375,7 +1496,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 final color = current
                     ? Theme.of(context).colorScheme.primary
                     : complete
-                        ? Colors.green.shade700
+                        ? DashboardTheme.success
                         : Theme.of(context).colorScheme.outlineVariant;
                 return Row(
                   children: [
@@ -1392,7 +1513,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                 context,
                               ).colorScheme.surfaceContainerLowest,
                         border: Border.all(color: color),
-                        borderRadius: BorderRadius.circular(9),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         children: [
@@ -1433,7 +1554,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         child: Divider(
                           thickness: 2,
                           color: complete
-                              ? Colors.green.shade700
+                              ? DashboardTheme.success
                               : Theme.of(context).colorScheme.outlineVariant,
                         ),
                       ),
@@ -1465,9 +1586,15 @@ class _DashboardPageState extends State<DashboardPage> {
             itemCount: 6,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 240,
-              mainAxisExtent: 112,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: constraints.maxWidth >= 1050
+                  ? 6
+                  : constraints.maxWidth >= 580
+                      ? 3
+                      : constraints.maxWidth >= 280
+                          ? 2
+                          : 1,
+              mainAxisExtent: 118,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
             ),
@@ -1483,7 +1610,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   currentAngle != targetAngle;
               final limits = _limitsFor(index);
               final color = moving
-                  ? Colors.orange.shade800
+                  ? DashboardTheme.warning
                   : attached
                       ? Theme.of(context).colorScheme.primary
                       : Theme.of(context).colorScheme.outline;
@@ -1492,7 +1619,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.06),
                   border: Border.all(color: color.withValues(alpha: 0.24)),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1547,7 +1674,10 @@ class _DashboardPageState extends State<DashboardPage> {
       SizedBox(
         height: 330,
         child: recent.isEmpty
-            ? const Center(child: Text('저장된 Run이 없습니다.'))
+            ? const DashboardEmptyState(
+                icon: Icons.history_rounded,
+                title: '아직 저장된 Run이 없습니다',
+                description: '작업을 실행하면 이곳에 이력이 쌓입니다.')
             : ListView.separated(
                 itemCount: recent.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
@@ -1561,11 +1691,11 @@ class _DashboardPageState extends State<DashboardPage> {
                     selected: selected,
                     leading: CircleAvatar(
                       backgroundColor: (complete
-                              ? Colors.green.shade700
+                              ? DashboardTheme.success
                               : Theme.of(context).colorScheme.primary)
                           .withValues(alpha: 0.12),
                       foregroundColor: complete
-                          ? Colors.green.shade700
+                          ? DashboardTheme.success
                           : Theme.of(context).colorScheme.primary,
                       child: Text('#$id', style: const TextStyle(fontSize: 11)),
                     ),
@@ -1601,7 +1731,10 @@ class _DashboardPageState extends State<DashboardPage> {
       SizedBox(
         height: 330,
         child: _events.isEmpty
-            ? const Center(child: Text('표시할 R/P/F 이벤트가 없습니다.'))
+            ? const DashboardEmptyState(
+                icon: Icons.timeline_rounded,
+                title: '표시할 R/P/F 이벤트가 없습니다',
+                description: 'Run을 선택하면 단계별 이벤트를 확인할 수 있습니다.')
             : ListView.separated(
                 itemCount: _events.length,
                 separatorBuilder: (context, index) => const Divider(height: 1),
@@ -1609,9 +1742,9 @@ class _DashboardPageState extends State<DashboardPage> {
                   final event = _events[index];
                   final type = event['event_type']?.toString() ?? '?';
                   final color = switch (type) {
-                    'R' => Colors.blue,
-                    'P' => Colors.orange,
-                    'F' => Colors.green,
+                    'R' => DashboardTheme.primary,
+                    'P' => DashboardTheme.warning,
+                    'F' => DashboardTheme.success,
                     _ => Colors.grey,
                   };
                   final payload = event['payload'];
@@ -1682,7 +1815,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _statusChip(String label, bool good, IconData icon) {
-    final color = good ? Colors.green.shade700 : Colors.red.shade700;
+    final color = good ? DashboardTheme.success : DashboardTheme.danger;
     return Chip(
       avatar: Icon(icon, size: 18, color: color),
       label: Text(label),
@@ -1692,19 +1825,16 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _section(String title, Widget child) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 14),
-            child,
-          ],
-        ),
-      ),
-    );
+    final icon = switch (title) {
+      'Joint 현재 / 목표 각도' || 'Joint 수동 제어' => Icons.tune_rounded,
+      '실행 준비 상태' => Icons.checklist_rounded,
+      '반복 실행 준비 데이터' => Icons.rule_folder_outlined,
+      '작업 제어' => Icons.play_circle_outline,
+      'Pose Playback' => Icons.precision_manufacturing_outlined,
+      '최근 Run 5개' || 'Run / RPF 이벤트 이력' => Icons.history_rounded,
+      _ => Icons.analytics_outlined,
+    };
+    return DashboardSection(title: title, icon: icon, child: child);
   }
 
   Widget _buildReadiness() {
@@ -1739,7 +1869,7 @@ class _DashboardPageState extends State<DashboardPage> {
             style: TextStyle(
               fontWeight: FontWeight.w600,
               color:
-                  _readyToRun ? Colors.green.shade700 : Colors.orange.shade800,
+                  _readyToRun ? DashboardTheme.success : DashboardTheme.warning,
             ),
           ),
           const SizedBox(height: 8),
@@ -1762,7 +1892,7 @@ class _DashboardPageState extends State<DashboardPage> {
           Icon(
             complete ? Icons.check_circle : Icons.radio_button_unchecked,
             size: 20,
-            color: complete ? Colors.green.shade700 : Colors.orange.shade700,
+            color: complete ? DashboardTheme.success : DashboardTheme.warning,
           ),
           const SizedBox(width: 8),
           Expanded(child: Text(label)),
@@ -1785,7 +1915,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final latest = _map(latestRaw);
     final latestId = _latestUnreviewedRunId;
     final lockColor =
-        _repeatUnlocked ? Colors.green.shade700 : Colors.orange.shade800;
+        _repeatUnlocked ? DashboardTheme.success : DashboardTheme.warning;
 
     return _section(
       '반복 실행 준비 데이터',
@@ -1815,7 +1945,7 @@ class _DashboardPageState extends State<DashboardPage> {
               Chip(
                 avatar: Icon(
                   Icons.check_circle,
-                  color: Colors.green.shade700,
+                  color: DashboardTheme.success,
                   size: 18,
                 ),
                 label: Text('정상 $normal건'),
@@ -1848,7 +1978,7 @@ class _DashboardPageState extends State<DashboardPage> {
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerLowest,
               border: Border.all(color: Theme.of(context).dividerColor),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: latestId == null
                 ? const Text('결과를 기록할 미판정 Run이 없습니다.')
@@ -1971,7 +2101,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 Icon(
                   Icons.info_outline,
                   size: 18,
-                  color: Colors.orange.shade800,
+                  color: DashboardTheme.warning,
                 ),
                 const SizedBox(width: 8),
                 const Expanded(
@@ -2005,7 +2135,7 @@ class _DashboardPageState extends State<DashboardPage> {
             child: Row(
               children: [
                 SizedBox(
-                  width: 72,
+                  width: MediaQuery.sizeOf(context).width < 600 ? 52 : 72,
                   child: Text(
                     'Joint ${index + 1}',
                     style: const TextStyle(fontWeight: FontWeight.w600),
@@ -2049,12 +2179,12 @@ class _DashboardPageState extends State<DashboardPage> {
                   icon: const Icon(Icons.add, size: 18),
                 ),
                 SizedBox(
-                  width: 70,
+                  width: MediaQuery.sizeOf(context).width < 600 ? 48 : 70,
                   child: Text(
                     known == null ? '미설정' : '$known°',
                     textAlign: TextAlign.end,
                     style: TextStyle(
-                      color: known == null ? Colors.orange.shade800 : null,
+                      color: known == null ? DashboardTheme.warning : null,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -2199,9 +2329,9 @@ class _DashboardPageState extends State<DashboardPage> {
                   final event = _events[index];
                   final type = event['event_type']?.toString() ?? '?';
                   final color = switch (type) {
-                    'R' => Colors.blue,
-                    'P' => Colors.orange,
-                    'F' => Colors.green,
+                    'R' => DashboardTheme.primary,
+                    'P' => DashboardTheme.warning,
+                    'F' => DashboardTheme.success,
                     _ => Colors.grey,
                   };
                   final payload = event['payload'];
