@@ -165,9 +165,15 @@ final class RpfAnalysisResult {
   final bool syntheticModel;
 }
 
+final class RpfAnalysisSnapshot {
+  const RpfAnalysisSnapshot({this.result, this.isPending = false});
+
+  final RpfAnalysisResult? result;
+  final bool isPending;
+}
+
 abstract interface class RpfAnalysisDataSource {
-  Future<RpfAnalysisResult?> loadAnalysis(int rpfId);
-  Future<RpfAnalysisResult> analyze(int rpfId);
+  Future<RpfAnalysisSnapshot> loadAnalysis(int rpfId);
 }
 
 final class MockQualityDashboardDataSource

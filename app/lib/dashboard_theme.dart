@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'metric_help.dart';
+
 /// Shared visual language for the monitoring, control and quality screens.
 abstract final class DashboardTheme {
   static const ink = Color(0xff172b3a);
@@ -272,6 +274,7 @@ class DashboardMetric extends StatelessWidget {
       required this.icon,
       this.color = DashboardTheme.primary,
       this.note,
+      this.helpTerm,
       this.onTap});
 
   final String label;
@@ -279,6 +282,7 @@ class DashboardMetric extends StatelessWidget {
   final IconData icon;
   final Color color;
   final String? note;
+  final String? helpTerm;
   final VoidCallback? onTap;
 
   @override
@@ -306,7 +310,11 @@ class DashboardMetric extends StatelessWidget {
                         size: 15, color: DashboardTheme.muted),
                 ]),
                 const SizedBox(height: 16),
-                Text(label, style: Theme.of(context).textTheme.labelMedium),
+                if (helpTerm == null)
+                  Text(label, style: Theme.of(context).textTheme.labelMedium)
+                else
+                  MetricLabel(label, term: helpTerm,
+                      style: Theme.of(context).textTheme.labelMedium),
                 const SizedBox(height: 5),
                 FittedBox(
                   fit: BoxFit.scaleDown,

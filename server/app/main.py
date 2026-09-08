@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from .config import load_settings
 from .analysis_client import AnalysisClient, AnalysisError
+from .analysis_service import RpfAnalysisService
 from .database import Database
 from .service import RobotError, RobotService, WebSocketHub
 
@@ -35,17 +36,19 @@ async def lifespan(app: FastAPI):
     settings = load_settings()
     database = Database(settings.database_path)
     hub = WebSocketHub()
-    service = RobotService(settings, database, hub)
-    app.state.service = service
     analysis_client = AnalysisClient(settings.analysis_base_url, settings.analysis_timeout_seconds)
     app.state.analysis_client = analysis_client
+    analysis = RpfAnalysisService(database, analysis_client)
+    service = RobotService(settings, database, hub, analysis)
+    app.state.service = service
     await service.start()
     try:
         yield
     finally:
-        await analysis_client.close()
         await service.shutdown()
         await service.serial.stop()
+        await analysis.shutdown()
+        await analysis_client.close()
         database.close()
 
 
@@ -148,29 +151,24 @@ async def get_rpf_records(
 async def get_rpf_record(
     request: Request, rpf_id: Annotated[int, Path(ge=1)]
 ) -> dict[str, Any]:
-    database = service_from(request).database
+    service = service_from(request)
+    database = service.database
     record = database.get_rpf(rpf_id)
     if record is None:
         raise HTTPException(status_code=404, detail="RPF not found")
     return {**record, "events": database.list_rpf_events(rpf_id),
-            "analysis_result": database.get_analysis_result(rpf_id)}
+            "analysis_result": database.get_analysis_result(rpf_id),
+            "analysis_pending": service.analysis.is_pending(rpf_id)}
 
 
 @app.post("/api/rpf/{rpf_id}/analyze")
 async def analyze_rpf(
     request: Request, rpf_id: Annotated[int, Path(ge=1)]
 ) -> dict[str, Any]:
-    database = service_from(request).database
-    record = database.get_rpf(rpf_id)
-    if record is None:
-        raise HTTPException(status_code=404, detail="RPF not found")
-    if record["status"] != "completed":
-        raise HTTPException(status_code=409, detail="완료된 RPF만 분석할 수 있습니다.")
     try:
-        result = await request.app.state.analysis_client.analyze(record, database.list_rpf_events(rpf_id))
+        return await service_from(request).analysis.analyze(rpf_id)
     except AnalysisError as exc:
         raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
-    return database.save_analysis_result(result)
 
 
 @app.get("/api/calibration")

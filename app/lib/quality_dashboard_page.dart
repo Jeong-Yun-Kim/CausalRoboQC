@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'dashboard_theme.dart';
+import 'metric_help.dart';
 import 'quality_dashboard_api.dart';
 import 'quality_dashboard_data.dart';
 import 'rpf_analysis_panel.dart';
@@ -459,6 +460,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                       width: width,
                       child: DashboardMetric(
                         label: item.label,
+                        helpTerm: metricDescriptions.containsKey(item.label) ? item.label : null,
                         value: item.value,
                         icon: item.icon,
                         note: item.note,
@@ -544,7 +546,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(group.label)),
+                  Expanded(child: MetricLabel(group.label)),
                   Text(
                     '${group.count}건',
                     style: const TextStyle(fontWeight: FontWeight.w700),
@@ -1134,8 +1136,9 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
+                        child: MetricLabel(
                           '${product.id} · RPF 상세',
+                          term: 'RPF',
                           style: Theme.of(dialogContext)
                               .textTheme
                               .titleLarge
@@ -1370,7 +1373,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
         border: Border.all(color: color.withValues(alpha: 0.35)),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(
+      child: MetricLabel(
         grade.label,
         style: TextStyle(
           color: color,

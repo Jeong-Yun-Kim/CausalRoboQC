@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import WebSocket
 
+from .analysis_service import RpfAnalysisService
 from .config import Settings
 from .database import Database, utc_now
 from .rpf import RpfPipeline
@@ -163,10 +164,14 @@ class PoseStore:
 
 
 class RobotService:
-    def __init__(self, settings: Settings, database: Database, hub: WebSocketHub):
+    def __init__(
+        self, settings: Settings, database: Database, hub: WebSocketHub,
+        analysis: RpfAnalysisService | None = None,
+    ):
         self.settings = settings
         self.database = database
         self.hub = hub
+        self.analysis = analysis
         self.poses = PoseStore(settings.poses_path)
         self.robot: dict[str, Any] = {
             "attached_mask": 0,
@@ -785,6 +790,7 @@ class RobotService:
         rpf_id = self.active_rpf_id
         if rpf_id is None:
             return None
+        previous = self.database.get_rpf(rpf_id)
         started = self.active_rpf_started
         elapsed_ms = None if started is None else round((monotonic() - started) * 1000)
         event = self.database.add_event(
@@ -797,6 +803,12 @@ class RobotService:
         record = self.rpf.finish_cycle(rpf_id, status, elapsed_ms)
         self.active_rpf_id = None
         self.active_rpf_started = None
+        if (
+            self.analysis is not None
+            and previous is not None and previous["status"] == "running"
+            and record is not None and record["status"] == "completed"
+        ):
+            self.analysis.schedule(rpf_id)
         await self.hub.broadcast("event", event)
         return record
 

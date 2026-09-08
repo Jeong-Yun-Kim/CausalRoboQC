@@ -21,9 +21,9 @@ final class ApiQualityDashboardDataSource
     return Uri.parse('$normalized$path');
   }
 
-  Future<Map<String, dynamic>> _analysisRequest(int rpfId, {bool run = false}) async {
-    final uri = _uri('/api/rpf/$rpfId${run ? '/analyze' : ''}');
-    final response = await (run ? http.post(uri) : http.get(uri))
+  Future<Map<String, dynamic>> _analysisRequest(int rpfId) async {
+    final uri = _uri('/api/rpf/$rpfId');
+    final response = await http.get(uri)
         .timeout(const Duration(seconds: 15));
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -37,17 +37,16 @@ final class ApiQualityDashboardDataSource
   }
 
   @override
-  Future<RpfAnalysisResult?> loadAnalysis(int rpfId) async {
+  Future<RpfAnalysisSnapshot> loadAnalysis(int rpfId) async {
     final detail = await _analysisRequest(rpfId);
     final result = detail['analysis_result'];
-    return result == null
-        ? null
-        : RpfAnalysisResult.fromJson(Map<String, dynamic>.from(result as Map));
+    return RpfAnalysisSnapshot(
+      result: result == null
+          ? null
+          : RpfAnalysisResult.fromJson(Map<String, dynamic>.from(result as Map)),
+      isPending: detail['analysis_pending'] == true,
+    );
   }
-
-  @override
-  Future<RpfAnalysisResult> analyze(int rpfId) async =>
-      RpfAnalysisResult.fromJson(await _analysisRequest(rpfId, run: true));
 
   @override
   Future<DashboardData> load() async {

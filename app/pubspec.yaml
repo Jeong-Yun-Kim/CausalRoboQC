@@ -13,6 +13,8 @@ dependencies:
   web_socket_channel: ^3.0.3
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^6.0.0
 
 flutter:
