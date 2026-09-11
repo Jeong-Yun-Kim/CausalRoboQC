@@ -77,7 +77,7 @@ def make_products(rules: RpfRules, seed: int) -> list[dict]:
         event("RPF_FINISHED", status="completed")
         grade = rules.evaluate("completed", events)
         products.append({
-            "product_id": product_id, "cycle_index": cycle,
+            "product_id": product_id, "product_group": "ABC"[cycle % 3], "cycle_index": cycle,
             "started_at": timestamp(started), "finished_at": timestamp(current),
             "work_time_ms": round((current - started).total_seconds() * 1000),
             "grade": grade, "events": events,
@@ -130,12 +130,12 @@ def seed_demo(database_path: Path, rules_path: Path, seed: int = 42) -> dict:
                 rpf_id = connection.execute(
                     "INSERT INTO rpf_records(run_id,cycle_index,product_id,status,started_at,finished_at,"
                     "work_time_ms,retry_count,error_count,operator_interventions,grade,grade_reasons,"
-                    "created_at,updated_at) VALUES(?,?,?,'completed',?,?,?,?,?,?,?,?,?,?)",
+                    "created_at,updated_at,product_group) VALUES(?,?,?,'completed',?,?,?,?,?,?,?,?,?,?,?)",
                     (run_id, product["cycle_index"], product["product_id"], product["started_at"],
                      product["finished_at"], product["work_time_ms"], grade.retry_count,
                      grade.error_count, grade.operator_interventions, grade.grade,
                      json.dumps(grade.reasons, ensure_ascii=False),
-                     product["started_at"], product["finished_at"]),
+                     product["started_at"], product["finished_at"], product["product_group"]),
                 ).lastrowid
                 connection.executemany(
                     "INSERT INTO events(run_id,rpf_id,event_type,name,payload,raw,created_at) "
@@ -150,6 +150,7 @@ def seed_demo(database_path: Path, rules_path: Path, seed: int = 42) -> dict:
             "pose_events": len(products) * len(STAGES) * 2,
             "total_demo_events": sum(len(product["events"]) for product in products),
             "grades": dict(Counter(product["grade"].grade for product in products)),
+            "product_groups": dict(Counter(product["product_group"] for product in products)),
         }
     finally:
         database.close()

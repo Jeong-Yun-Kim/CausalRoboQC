@@ -7,6 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'quality_dashboard_page.dart';
 import 'dashboard_theme.dart';
+import 'data_browser_page.dart';
 
 const _configuredApiBase = String.fromEnvironment(
   'API_BASE_URL',
@@ -802,7 +803,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final title = switch (_pageIndex) {
       0 => '대시보드',
       1 => '로봇 제어',
-      _ => '품질관리 대시보드',
+      2 => '품질관리 대시보드',
+      _ => '데이터 조회',
     };
 
     return Scaffold(
@@ -817,7 +819,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   child: switch (_pageIndex) {
                 0 => _buildDashboardPage(),
                 1 => _buildRobotControlPage(),
-                _ => const QualityDashboardPage(),
+                2 => const QualityDashboardPage(),
+                _ => const DataBrowserPage(),
               }),
             ]),
           ),
@@ -846,6 +849,11 @@ class _DashboardPageState extends State<DashboardPage> {
                   selectedIcon: Icon(Icons.fact_check),
                   label: '품질관리',
                 ),
+                NavigationDestination(
+                  icon: Icon(Icons.table_chart_outlined),
+                  selectedIcon: Icon(Icons.table_chart),
+                  label: '데이터 조회',
+                ),
               ],
             ),
     );
@@ -856,6 +864,7 @@ class _DashboardPageState extends State<DashboardPage> {
       (Icons.space_dashboard_outlined, '대시보드', 'Overview'),
       (Icons.tune_rounded, '로봇 제어', 'Robot control'),
       (Icons.fact_check_outlined, '품질관리', 'Quality insights'),
+      (Icons.table_chart_outlined, '데이터 조회', 'Data browser'),
     ];
     return Container(
       width: 224,

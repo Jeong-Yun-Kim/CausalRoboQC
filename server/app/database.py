@@ -39,6 +39,7 @@ class Database:
                     run_id INTEGER,
                     cycle_index INTEGER,
                     product_id TEXT,
+                    product_group TEXT,
                     status TEXT,
                     started_at TEXT,
                     finished_at TEXT,
@@ -123,6 +124,16 @@ class Database:
                     "ALTER TABLE events "
                     "ADD COLUMN rpf_id INTEGER REFERENCES rpf_records(id)"
                 )
+            rpf_columns = {
+                str(row["name"])
+                for row in self.connection.execute("PRAGMA table_info(rpf_records)")
+            }
+            if "product_group" not in rpf_columns:
+                self.connection.execute("ALTER TABLE rpf_records ADD COLUMN product_group TEXT")
+            self.connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_rpf_finished_at "
+                "ON rpf_records(julianday(finished_at), id)"
+            )
             self.connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_events_rpf_id ON events(rpf_id)"
             )
@@ -260,16 +271,17 @@ class Database:
         run_id: int,
         cycle_index: int,
         product_id: str,
+        product_group: str | None = None,
     ) -> dict[str, Any]:
         now = utc_now()
         with self.lock:
             cursor = self.connection.execute(
                 """
                 INSERT INTO rpf_records(
-                    run_id,cycle_index,product_id,status,started_at,created_at,updated_at
-                ) VALUES(?,?,?,?,?,?,?)
+                    run_id,cycle_index,product_id,status,started_at,created_at,updated_at,product_group
+                ) VALUES(?,?,?,?,?,?,?,?)
                 """,
-                (run_id, cycle_index, product_id, "running", now, now, now),
+                (run_id, cycle_index, product_id, "running", now, now, now, product_group),
             )
             self.connection.commit()
             return self.get_rpf(int(cursor.lastrowid))
@@ -288,6 +300,57 @@ class Database:
                 (limit, offset),
             ).fetchall()
             return [self._rpf(row) for row in rows]
+
+    def browse_rpfs(
+        self, *, from_at: str | None = None, to_at: str | None = None,
+        product_group: str | None = None, grade: str | None = None,
+        product_id: str | None = None, limit: int | None = None, offset: int = 0,
+    ) -> dict[str, Any]:
+        """Shared JSON/CSV query. from_at is inclusive; to_at is exclusive.
+
+        julianday compares instants even for legacy timestamps with UTC offsets.
+        A missing limit returns every matching row, including for CSV export.
+        """
+        clauses: list[str] = []
+        parameters: list[Any] = []
+        for column, operator, value in (
+            ("julianday(r.finished_at)", ">=", from_at),
+            ("julianday(r.finished_at)", "<", to_at),
+        ):
+            if value is not None:
+                clauses.append(f"{column} {operator} julianday(?)")
+                parameters.append(value)
+        for column, value in (("r.product_group", product_group), ("r.grade", grade)):
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                parameters.append(value)
+        if product_id is not None:
+            # Literal substring search: %, _ and quotes are ordinary characters.
+            clauses.append("instr(lower(r.product_id), lower(?)) > 0")
+            parameters.append(product_id)
+        where = " WHERE " + " AND ".join(clauses) if clauses else ""
+        with self.lock:
+            # Keep total/items consistent, including while the demo seed replaces a batch.
+            with self.connection:
+                self.connection.execute("BEGIN")
+                total = self.connection.execute(
+                    f"SELECT COUNT(*) FROM rpf_records r{where}", parameters
+                ).fetchone()[0]
+                rows = self.connection.execute(
+                    "SELECT r.id,r.product_id,r.product_group,r.started_at,r.finished_at,"
+                    "r.status,r.grade,r.work_time_ms,r.retry_count,r.error_count,"
+                    "r.operator_interventions,a.anomaly_score,a.inspection_risk_score,"
+                    "a.timeseries_anomaly_score FROM rpf_records r "
+                    "LEFT JOIN analysis_results a ON a.rpf_id=r.id"
+                    f"{where} ORDER BY julianday(r.finished_at) DESC,r.id DESC LIMIT ? OFFSET ?",
+                    (*parameters, -1 if limit is None else limit, offset),
+                ).fetchall()
+                groups = self.connection.execute(
+                    "SELECT DISTINCT product_group FROM rpf_records "
+                    "WHERE product_group IS NOT NULL ORDER BY product_group"
+                ).fetchall()
+            return {"items": [dict(row) for row in rows], "total": total,
+                    "product_groups": [row[0] for row in groups]}
 
     def get_analysis_result(self, rpf_id: int) -> dict[str, Any] | None:
         with self.lock:
