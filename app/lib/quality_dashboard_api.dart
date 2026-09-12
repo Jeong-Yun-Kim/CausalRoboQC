@@ -23,8 +23,7 @@ final class ApiQualityDashboardDataSource
 
   Future<Map<String, dynamic>> _analysisRequest(int rpfId) async {
     final uri = _uri('/api/rpf/$rpfId');
-    final response = await http.get(uri)
-        .timeout(const Duration(seconds: 15));
+    final response = await http.get(uri).timeout(const Duration(seconds: 15));
     final decoded = jsonDecode(utf8.decode(response.bodyBytes));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final detail = decoded is Map ? decoded['detail'] : null;
@@ -43,7 +42,8 @@ final class ApiQualityDashboardDataSource
     return RpfAnalysisSnapshot(
       result: result == null
           ? null
-          : RpfAnalysisResult.fromJson(Map<String, dynamic>.from(result as Map)),
+          : RpfAnalysisResult.fromJson(
+              Map<String, dynamic>.from(result as Map)),
       isPending: detail['analysis_pending'] == true,
     );
   }
@@ -144,6 +144,8 @@ final class ApiQualityDashboardDataSource
     return ProductRpf(
       id: item['product_id']?.toString() ?? 'RPF-${item['id']}',
       rpfId: _integer(item['id']),
+      productGroup: item['product_group']?.toString(),
+      finishedAt: DateTime.tryParse(item['finished_at']?.toString() ?? ''),
       isCompleted: status == 'completed',
       grade: grade,
       workTimeSeconds: _number(item['work_time_ms']) / 1000,
@@ -152,7 +154,11 @@ final class ApiQualityDashboardDataSource
       status: switch (status) {
         'completed' => '완료',
         'failed' => '실패',
-        _ => status,
+        'running' => '진행 중',
+        'interrupted' => '중단',
+        'stopped' => '정지',
+        'pending' => '대기',
+        _ => '상태 확인 중',
       },
       operatorInterventions: _integer(item['operator_interventions']),
       errorEvents: _integer(item['error_count']),

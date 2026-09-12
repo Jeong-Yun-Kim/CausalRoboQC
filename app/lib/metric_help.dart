@@ -42,7 +42,7 @@ class MetricLabel extends StatelessWidget {
             label: '$helpTerm 설명',
             button: true,
             child: SizedBox.square(
-              dimension: 24,
+              dimension: 40,
               child: Icon(Icons.info_outline,
                   size: 15,
                   color: style?.color ??

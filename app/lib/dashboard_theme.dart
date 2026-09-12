@@ -4,30 +4,46 @@ import 'metric_help.dart';
 
 /// Shared visual language for the monitoring, control and quality screens.
 abstract final class DashboardTheme {
-  static const ink = Color(0xff172b3a);
-  static const muted = Color(0xff697b88);
-  static const primary = Color(0xff087f8c);
-  static const success = Color(0xff21866b);
-  static const warning = Color(0xffb77817);
-  static const danger = Color(0xffcf4856);
-  static const background = Color(0xfff3f6f8);
-  static const border = Color(0xffe3e9ee);
-  static const navy = Color(0xff132b3a);
+  static const ink = Color(0xff242424);
+  static const muted = Color(0xff707070);
+  static const primary = Color(0xff353535);
+  static const success = Color(0xff43765b);
+  static const warning = Color(0xff966b28);
+  static const danger = Color(0xffad4545);
+  static const background = Color(0xfff7f7f7);
+  static const border = Color(0xffe3e3e3);
+  static const navy = Color(0xff242424);
+
+  static const radius = 6.0;
+  static const sectionSpacing = 20.0;
+  static const cardPadding = 16.0;
+  static const controlHeight = 44.0;
+  static const dialogWidth = 680.0;
+  static const sidebarSelected = Color(0xff3b3b3b);
+  static const sidebarMuted = Color(0xffbdbdbd);
 
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(seedColor: primary).copyWith(
       primary: primary,
       onPrimary: Colors.white,
-      primaryContainer: const Color(0xffe0f2f2),
-      onPrimaryContainer: const Color(0xff08636c),
+      secondary: primary,
+      onSecondary: Colors.white,
+      secondaryContainer: border,
+      onSecondaryContainer: ink,
+      tertiary: primary,
+      onTertiary: Colors.white,
+      tertiaryContainer: background,
+      onTertiaryContainer: ink,
+      primaryContainer: const Color(0xffe9e9e9),
+      onPrimaryContainer: const Color(0xff353535),
       surface: Colors.white,
-      surfaceContainerLowest: const Color(0xfff8fafb),
+      surfaceContainerLowest: const Color(0xfffafafa),
       surfaceContainerLow: background,
-      surfaceContainer: const Color(0xffeef3f6),
-      surfaceContainerHigh: const Color(0xffe7eef2),
+      surfaceContainer: const Color(0xfff0f0f0),
+      surfaceContainerHigh: const Color(0xffe8e8e8),
       onSurface: ink,
       onSurfaceVariant: muted,
-      outline: const Color(0xff8b9ca8),
+      outline: const Color(0xff969696),
       outlineVariant: border,
       error: danger,
       onError: Colors.white,
@@ -35,28 +51,29 @@ abstract final class DashboardTheme {
     final base = ThemeData(useMaterial3: true, colorScheme: scheme);
     final text = base.textTheme.apply(bodyColor: ink, displayColor: ink);
     final buttonShape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(radius),
     );
     return base.copyWith(
       scaffoldBackgroundColor: background,
       dividerColor: border,
       textTheme: text.copyWith(
         headlineMedium: text.headlineMedium?.copyWith(
-          fontSize: 28,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.8,
+          fontSize: 22,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
         ),
         headlineSmall: text.headlineSmall?.copyWith(
-          fontSize: 24,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.6,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
         ),
         titleLarge: text.titleLarge?.copyWith(
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-          letterSpacing: -0.3,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
         ),
-        titleMedium: text.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+        titleMedium: text.titleMedium
+            ?.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
         bodyMedium: text.bodyMedium?.copyWith(fontSize: 13, height: 1.5),
         bodySmall: text.bodySmall?.copyWith(color: muted, height: 1.5),
         labelSmall: text.labelSmall?.copyWith(color: muted, fontSize: 11),
@@ -68,13 +85,13 @@ abstract final class DashboardTheme {
         margin: EdgeInsets.zero,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(radius),
           side: const BorderSide(color: border),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 44),
+          minimumSize: const Size(0, controlHeight),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: buttonShape,
           textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -82,51 +99,76 @@ abstract final class DashboardTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 44),
+          minimumSize: const Size(0, controlHeight),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: buttonShape,
           side: const BorderSide(color: border),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(shape: buttonShape),
+        style: TextButton.styleFrom(
+            shape: buttonShape, minimumSize: const Size(0, controlHeight)),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+          style: IconButton.styleFrom(
+        minimumSize: const Size(controlHeight, controlHeight),
+        shape: buttonShape,
+      )),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+            color: navy, borderRadius: BorderRadius.circular(radius)),
+        textStyle:
+            const TextStyle(color: Colors.white, fontSize: 12, height: 1.5),
+        padding: const EdgeInsets.all(12),
       ),
       inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
         filled: true,
-        fillColor: const Color(0xfff8fafb),
+        fillColor: const Color(0xfffafafa),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(radius),
           borderSide: const BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(radius),
           borderSide: const BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(radius),
           borderSide: const BorderSide(color: primary, width: 1.5),
         ),
       ),
       chipTheme: ChipThemeData(
         backgroundColor: background,
         side: BorderSide.none,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
         labelStyle: const TextStyle(fontSize: 12, color: ink),
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titleTextStyle: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
+        titleTextStyle: text.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        headerBackgroundColor: Colors.white,
+        headerForegroundColor: ink,
+        headerHeadlineStyle: text.titleLarge
+            ?.copyWith(fontSize: 22, fontWeight: FontWeight.w600),
+        shape: buttonShape,
       ),
       dividerTheme: const DividerThemeData(color: border, thickness: 1),
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: primary,
-        linearTrackColor: const Color(0xffe8eff2),
-        borderRadius: BorderRadius.circular(6),
+        linearTrackColor: const Color(0xffe9e9e9),
+        borderRadius: BorderRadius.circular(radius),
       ),
       sliderTheme: const SliderThemeData(
         trackHeight: 5,
@@ -135,8 +177,9 @@ abstract final class DashboardTheme {
       ),
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-        selectedTileColor: const Color(0xffeaf5f5),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        selectedTileColor: const Color(0xfff0f0f0),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
         titleTextStyle: const TextStyle(
             color: ink, fontSize: 13, fontWeight: FontWeight.w600),
         subtitleTextStyle:
@@ -145,20 +188,27 @@ abstract final class DashboardTheme {
       dataTableTheme: DataTableThemeData(
         headingRowColor: const WidgetStatePropertyAll(background),
         headingRowHeight: 48,
+        dataRowMinHeight: 52,
+        dataRowMaxHeight: 60,
+        headingTextStyle: const TextStyle(
+            fontSize: 12, color: muted, fontWeight: FontWeight.w600),
+        dataTextStyle: const TextStyle(fontSize: 13, color: ink),
         dividerThickness: 0.7,
-        dataRowColor: WidgetStateProperty.resolveWith((states) =>
-            states.contains(WidgetState.selected)
-                ? const Color(0xffeaf5f5)
-                : null),
+        dataRowColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? const Color(0xfff0f0f0)
+                : states.contains(WidgetState.hovered)
+                    ? const Color(0xfffafafa)
+                    : null),
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: const Color(0xffe0f2f2),
+        indicatorColor: const Color(0xffe9e9e9),
         labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
               fontSize: 11,
               fontWeight: states.contains(WidgetState.selected)
-                  ? FontWeight.w700
+                  ? FontWeight.w600
                   : FontWeight.w500,
               color: states.contains(WidgetState.selected) ? primary : muted,
             )),
@@ -166,77 +216,56 @@ abstract final class DashboardTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: navy,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
       ),
     );
   }
 
   static EdgeInsets pagePadding(double width) =>
-      EdgeInsets.all(width < 600 ? 16 : 28);
-
-  static BoxDecoration get bannerDecoration => BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [navy, Color(0xff1d4453)],
-          begin: Alignment.centerLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(18),
-      );
+      EdgeInsets.all(width < 600 ? 16 : 24);
 }
 
 class DashboardHeading extends StatelessWidget {
   const DashboardHeading(
-      {super.key,
-      required this.eyebrow,
-      required this.title,
-      required this.description,
-      this.trailing});
-
-  final String eyebrow;
+      {super.key, required this.title, this.description, this.trailing});
   final String title;
-  final String description;
+  final String? description;
   final Widget? trailing;
 
   @override
-  Widget build(BuildContext context) {
-    final text = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(eyebrow,
-            style: const TextStyle(
-                color: DashboardTheme.primary,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.8)),
-        const SizedBox(height: 7),
-        Text(title, style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 5),
-        Text(description, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: LayoutBuilder(builder: (context, constraints) {
-        if (trailing == null) return text;
-        if (constraints.maxWidth < 620) {
-          return Column(
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: DashboardTheme.sectionSpacing),
+        child: LayoutBuilder(builder: (context, constraints) {
+          final heading =
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: Theme.of(context).textTheme.headlineMedium),
+            if (description != null) ...[
+              const SizedBox(height: 4),
+              Text(description!, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ]);
+          if (trailing == null) {
+            return heading;
+          }
+          if (constraints.maxWidth < 500) {
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [text, const SizedBox(height: 12), trailing!]);
-        }
-        return Row(children: [
-          Expanded(child: text),
-          const SizedBox(width: 20),
-          trailing!
-        ]);
-      }),
-    );
-  }
+              children: [heading, const SizedBox(height: 12), trailing!],
+            );
+          }
+          return Row(children: [
+            Expanded(child: heading),
+            const SizedBox(width: 16),
+            trailing!
+          ]);
+        }),
+      );
 }
 
 class DashboardSection extends StatelessWidget {
   const DashboardSection(
       {super.key, required this.title, required this.child, this.icon});
-
   final String title;
   final Widget child;
   final IconData? icon;
@@ -245,23 +274,13 @@ class DashboardSection extends StatelessWidget {
   Widget build(BuildContext context) => Card(
         semanticContainer: false,
         child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(children: [
-                if (icon != null) ...[
-                  Icon(icon, color: DashboardTheme.primary, size: 19),
-                  const SizedBox(width: 9),
-                ],
-                Expanded(
-                    child: Text(title,
-                        style: Theme.of(context).textTheme.titleLarge)),
-              ]),
-              const SizedBox(height: 18),
-              child,
-            ],
-          ),
+          padding: const EdgeInsets.all(DashboardTheme.cardPadding),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            child,
+          ]),
         ),
       );
 }
@@ -271,15 +290,14 @@ class DashboardMetric extends StatelessWidget {
       {super.key,
       required this.label,
       required this.value,
-      required this.icon,
-      this.color = DashboardTheme.primary,
+      this.icon,
+      this.color = DashboardTheme.ink,
       this.note,
       this.helpTerm,
       this.onTap});
-
   final String label;
   final String value;
-  final IconData icon;
+  final IconData? icon;
   final Color color;
   final String? note;
   final String? helpTerm;
@@ -290,85 +308,86 @@ class DashboardMetric extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          hoverColor: color.withValues(alpha: 0.04),
+          hoverColor: DashboardTheme.background,
           child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.09),
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Icon(icon, size: 19, color: color),
-                  ),
-                  const Spacer(),
-                  if (onTap != null)
-                    const Icon(Icons.north_east,
-                        size: 15, color: DashboardTheme.muted),
-                ]),
-                const SizedBox(height: 16),
-                if (helpTerm == null)
-                  Text(label, style: Theme.of(context).textTheme.labelMedium)
-                else
-                  MetricLabel(label, term: helpTerm,
-                      style: Theme.of(context).textTheme.labelMedium),
-                const SizedBox(height: 5),
-                FittedBox(
+            padding: const EdgeInsets.all(DashboardTheme.cardPadding),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SizedBox(
+                  height: 40,
+                  child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: helpTerm == null
+                          ? Text(label,
+                              style: Theme.of(context).textTheme.labelMedium)
+                          : MetricLabel(label,
+                              term: helpTerm,
+                              style: Theme.of(context).textTheme.labelMedium))),
+              const SizedBox(height: 4),
+              FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(value,
-                      style: Theme.of(context)
-                          .textTheme
-                          .headlineMedium
-                          ?.copyWith(fontSize: 27)),
-                ),
+                      style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          color: color))),
+              if (note != null) ...[
                 const SizedBox(height: 6),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 32),
-                  child: Text(note ?? '',
-                      style: Theme.of(context).textTheme.labelSmall),
-                ),
+                Text(note!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelSmall),
               ],
-            ),
+            ]),
           ),
         ),
       );
 }
 
+class DashboardStatusBadge extends StatelessWidget {
+  const DashboardStatusBadge(this.label,
+      {super.key, this.color = DashboardTheme.muted, this.helpTerm});
+  final String label;
+  final Color color;
+  final String? helpTerm;
+
+  @override
+  Widget build(BuildContext context) {
+    final style =
+        TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(DashboardTheme.radius)),
+      child: helpTerm == null
+          ? Text(label, style: style)
+          : MetricLabel(label, term: helpTerm, style: style),
+    );
+  }
+}
+
 class DashboardEmptyState extends StatelessWidget {
   const DashboardEmptyState(
       {super.key, required this.icon, required this.title, this.description});
-
   final IconData icon;
   final String title;
   final String? description;
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                  color: DashboardTheme.background,
-                  borderRadius: BorderRadius.circular(18)),
-              child: Icon(icon, size: 28, color: DashboardTheme.muted),
-            ),
-            const SizedBox(height: 14),
-            Text(title,
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleSmall),
+          if (description != null) ...[
+            const SizedBox(height: 6),
+            Text(description!,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.titleSmall),
-            if (description != null) ...[
-              const SizedBox(height: 6),
-              Text(description!,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ]),
-        ),
+                style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ]),
       );
 }

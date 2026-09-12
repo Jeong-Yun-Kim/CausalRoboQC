@@ -57,7 +57,8 @@ class _RpfAnalysisPanelState extends State<RpfAnalysisPanel> {
           _load();
         });
       }
-    } catch (_) {
+    } catch (error, stack) {
+      debugPrint('Analysis load failed: $error\n$stack');
       if (mounted) setState(() => _pending = false);
     }
   }
@@ -86,7 +87,7 @@ class _RpfAnalysisPanelState extends State<RpfAnalysisPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('ML / DL 분석', style: Theme.of(context).textTheme.titleMedium),
+        Text('보조 분석', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 10),
         _score('공정 이상도', result?.anomalyScore),
         _score('검사 위험도', result?.inspectionRiskScore),

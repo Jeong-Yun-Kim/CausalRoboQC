@@ -67,11 +67,15 @@ final class ProductRpf {
     required this.timeline,
     required this.recommendations,
     this.rpfId,
+    this.productGroup,
+    this.finishedAt,
     this.isCompleted = false,
   });
 
   final String id;
   final int? rpfId;
+  final String? productGroup;
+  final DateTime? finishedAt;
   final bool isCompleted;
   final QualityGrade grade;
   final double workTimeSeconds;
