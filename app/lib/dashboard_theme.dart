@@ -15,7 +15,8 @@ abstract final class DashboardTheme {
   static const navy = Color(0xff242424);
 
   static const radius = 4.0;
-  static const sectionSpacing = 20.0;
+  static const sectionSpacing = 24.0;
+  static const groupSpacing = 32.0;
   static const cardPadding = 16.0;
   static const controlHeight = 44.0;
   static const dialogWidth = 680.0;
@@ -188,8 +189,8 @@ abstract final class DashboardTheme {
       dataTableTheme: DataTableThemeData(
         headingRowColor: const WidgetStatePropertyAll(background),
         headingRowHeight: 44,
-        dataRowMinHeight: 48,
-        dataRowMaxHeight: 52,
+        dataRowMinHeight: 52,
+        dataRowMaxHeight: 60,
         headingTextStyle: const TextStyle(
             fontSize: 12, color: muted, fontWeight: FontWeight.w600),
         dataTextStyle: const TextStyle(fontSize: 13, color: ink),
@@ -281,7 +282,7 @@ class DashboardSection extends StatelessWidget {
                     Text(title, style: Theme.of(context).textTheme.titleLarge)),
             if (trailing != null) ...[const SizedBox(width: 12), trailing!],
           ]),
-          const Divider(height: 16),
+          const Divider(height: DashboardTheme.sectionSpacing),
           child,
         ],
       );
@@ -327,7 +328,7 @@ class DashboardMetric extends StatelessWidget {
                             : MetricLabel(label,
                                 term: helpTerm,
                                 style: Theme.of(context).textTheme.bodySmall)),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 12),
                     Text(value,
                         style: TextStyle(
                             fontSize: 16,

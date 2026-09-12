@@ -166,6 +166,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
               _buildKpiSection(
                 '공정 상태',
                 [
@@ -236,18 +237,18 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: DashboardTheme.sectionSpacing),
+              const SizedBox(height: DashboardTheme.groupSpacing),
               _buildProductTable(data),
-              const SizedBox(height: DashboardTheme.sectionSpacing),
+              const SizedBox(height: DashboardTheme.groupSpacing),
               if (wide)
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Expanded(child: _buildWorkTimeTrend(data)),
-                  const SizedBox(width: DashboardTheme.sectionSpacing),
+                  const SizedBox(width: DashboardTheme.groupSpacing),
                   Expanded(child: _buildAbnormalEvents(data)),
                 ])
               else ...[
                 _buildWorkTimeTrend(data),
-                const SizedBox(height: DashboardTheme.sectionSpacing),
+                const SizedBox(height: DashboardTheme.groupSpacing),
                 _buildAbnormalEvents(data),
               ],
               const SizedBox(height: 8),
@@ -275,8 +276,8 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
       );
 
   Widget _buildKpiSection(String title, List<_KpiItem> items) => Wrap(
-        spacing: 28,
-        runSpacing: 4,
+        spacing: 40,
+        runSpacing: 12,
         children: items
             .map((item) => DashboardMetric(
                   label: item.label,
@@ -655,26 +656,26 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                           ...product.observations.map((reason) => Padding(
                               padding: const EdgeInsets.symmetric(vertical: 3),
                               child: Text(reason))),
-                        const Divider(height: 24),
+                        const Divider(height: DashboardTheme.groupSpacing),
                         Text('공정 데이터',
                             style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 12),
                         _buildProductSummary(data, product),
-                        const Divider(height: 24),
+                        const Divider(height: DashboardTheme.groupSpacing),
                         RpfAnalysisPanel(
                             product: product,
                             source: widget.dataSource is RpfAnalysisDataSource
                                 ? widget.dataSource as RpfAnalysisDataSource
                                 : null),
                         if (product.timeline.isNotEmpty) ...[
-                          const Divider(height: 24),
+                          const Divider(height: DashboardTheme.groupSpacing),
                           Text('작업 이력',
                               style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 12),
                           _buildRpfTimeline(product),
                         ],
                         if (product.recommendations.isNotEmpty) ...[
-                          const Divider(height: 24),
+                          const Divider(height: DashboardTheme.groupSpacing),
                           Text('권장 점검',
                               style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 8),
@@ -728,7 +729,7 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
             ('작업자 개입', '${product.operatorInterventions}회'),
           ])
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: Row(children: [
                 Expanded(child: Text(entry.$1)),
                 Text(entry.$2),
