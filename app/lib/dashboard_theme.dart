@@ -14,7 +14,7 @@ abstract final class DashboardTheme {
   static const border = Color(0xffe3e3e3);
   static const navy = Color(0xff242424);
 
-  static const radius = 6.0;
+  static const radius = 4.0;
   static const sectionSpacing = 20.0;
   static const cardPadding = 16.0;
   static const controlHeight = 44.0;
@@ -54,11 +54,11 @@ abstract final class DashboardTheme {
       borderRadius: BorderRadius.circular(radius),
     );
     return base.copyWith(
-      scaffoldBackgroundColor: background,
+      scaffoldBackgroundColor: Colors.white,
       dividerColor: border,
       textTheme: text.copyWith(
         headlineMedium: text.headlineMedium?.copyWith(
-          fontSize: 22,
+          fontSize: 20,
           fontWeight: FontWeight.w600,
           letterSpacing: 0,
         ),
@@ -187,9 +187,9 @@ abstract final class DashboardTheme {
       ),
       dataTableTheme: DataTableThemeData(
         headingRowColor: const WidgetStatePropertyAll(background),
-        headingRowHeight: 48,
-        dataRowMinHeight: 52,
-        dataRowMaxHeight: 60,
+        headingRowHeight: 44,
+        dataRowMinHeight: 48,
+        dataRowMaxHeight: 52,
         headingTextStyle: const TextStyle(
             fontSize: 12, color: muted, fontWeight: FontWeight.w600),
         dataTextStyle: const TextStyle(fontSize: 13, color: ink),
@@ -205,6 +205,7 @@ abstract final class DashboardTheme {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         indicatorColor: const Color(0xffe9e9e9),
+        indicatorShape: buttonShape,
         labelTextStyle: WidgetStateProperty.resolveWith((states) => TextStyle(
               fontSize: 11,
               fontWeight: states.contains(WidgetState.selected)
@@ -248,7 +249,7 @@ class DashboardHeading extends StatelessWidget {
           if (trailing == null) {
             return heading;
           }
-          if (constraints.maxWidth < 500) {
+          if (constraints.maxWidth < 320) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [heading, const SizedBox(height: 12), trailing!],
@@ -265,23 +266,24 @@ class DashboardHeading extends StatelessWidget {
 
 class DashboardSection extends StatelessWidget {
   const DashboardSection(
-      {super.key, required this.title, required this.child, this.icon});
+      {super.key, required this.title, required this.child, this.trailing});
   final String title;
   final Widget child;
-  final IconData? icon;
+  final Widget? trailing;
 
   @override
-  Widget build(BuildContext context) => Card(
-        semanticContainer: false,
-        child: Padding(
-          padding: const EdgeInsets.all(DashboardTheme.cardPadding),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 16),
-            child,
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Expanded(
+                child:
+                    Text(title, style: Theme.of(context).textTheme.titleLarge)),
+            if (trailing != null) ...[const SizedBox(width: 12), trailing!],
           ]),
-        ),
+          const Divider(height: 16),
+          child,
+        ],
       );
 }
 
@@ -304,42 +306,42 @@ class DashboardMetric extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Card(
-        clipBehavior: Clip.antiAlias,
+  Widget build(BuildContext context) => Material(
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           hoverColor: DashboardTheme.background,
-          child: Padding(
-            padding: const EdgeInsets.all(DashboardTheme.cardPadding),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              SizedBox(
-                  height: 40,
-                  child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: helpTerm == null
-                          ? Text(label,
-                              style: Theme.of(context).textTheme.labelMedium)
-                          : MetricLabel(label,
-                              term: helpTerm,
-                              style: Theme.of(context).textTheme.labelMedium))),
-              const SizedBox(height: 4),
-              FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(value,
-                      style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                          color: color))),
-              if (note != null) ...[
-                const SizedBox(height: 6),
-                Text(note!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall),
-              ],
-            ]),
+          child: ConstrainedBox(
+            constraints:
+                const BoxConstraints(minHeight: DashboardTheme.controlHeight),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Flexible(
+                        child: helpTerm == null
+                            ? Text(label,
+                                style: Theme.of(context).textTheme.bodySmall)
+                            : MetricLabel(label,
+                                term: helpTerm,
+                                style: Theme.of(context).textTheme.bodySmall)),
+                    const SizedBox(width: 8),
+                    Text(value,
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: color)),
+                  ]),
+                  if (note != null) ...[
+                    const SizedBox(height: 6),
+                    Text(note!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelSmall),
+                  ],
+                ]),
           ),
         ),
       );
@@ -377,17 +379,17 @@ class DashboardEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleSmall),
-          if (description != null) ...[
-            const SizedBox(height: 6),
-            Text(description!,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ]),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: Theme.of(context).textTheme.bodySmall),
+              if (description != null) ...[
+                const SizedBox(height: 6),
+                Text(description!,
+                    style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ]),
       );
 }

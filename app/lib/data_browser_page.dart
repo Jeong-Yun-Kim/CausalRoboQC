@@ -194,16 +194,10 @@ class _DataBrowserPageState extends State<DataBrowserPage> {
         return ListView(
           padding: DashboardTheme.pagePadding(constraints.maxWidth),
           children: [
-            DashboardHeading(
-                title: '데이터 조회',
-                trailing: OutlinedButton.icon(
-                    onPressed:
-                        _loading || _dirty || data == null ? null : _download,
-                    icon: const Icon(Icons.download_outlined, size: 18),
-                    label: const Text('CSV 다운로드'))),
+            const DashboardHeading(title: '데이터 조회'),
             Wrap(
                 spacing: 12,
-                runSpacing: 16,
+                runSpacing: 12,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   _dateField(true, fieldWidth),
@@ -276,13 +270,18 @@ class _DataBrowserPageState extends State<DataBrowserPage> {
                   ]),
                 ]),
             const SizedBox(height: 12),
-            Text(_dirty ? '필터를 변경했습니다. 조회를 눌러 적용하세요.' : '완료 시각 기준 · 기기 현지 시간',
-                style: Theme.of(context).textTheme.bodySmall),
+            if (_dirty)
+              Text('필터 변경 후 조회를 눌러 적용하세요.',
+                  style: Theme.of(context).textTheme.bodySmall),
             const SizedBox(height: DashboardTheme.sectionSpacing),
             if (_loading) const LinearProgressIndicator(),
             DashboardSection(
-                title: data == null ? '조회 결과' : '조회 결과 · 총 ${data.total}건',
-                icon: Icons.table_chart_outlined,
+                title: data == null ? '조회 결과' : '총 ${data.total}건',
+                trailing: OutlinedButton.icon(
+                    onPressed:
+                        _loading || _dirty || data == null ? null : _download,
+                    icon: const Icon(Icons.download_outlined, size: 18),
+                    label: const Text('CSV 다운로드')),
                 child: _error != null
                     ? Text(_error!,
                         style: const TextStyle(color: DashboardTheme.danger))
@@ -302,7 +301,7 @@ class _DataBrowserPageState extends State<DataBrowserPage> {
                                         controller: _horizontalScroll,
                                         scrollDirection: Axis.horizontal,
                                         padding:
-                                            const EdgeInsets.only(bottom: 16),
+                                            const EdgeInsets.only(bottom: 8),
                                         child: DataTable(
                                           columnSpacing: 24,
                                           headingRowColor:
@@ -383,7 +382,7 @@ class _DataBrowserPageState extends State<DataBrowserPage> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(height: 12),
+                                    const Divider(height: 16),
                                     Wrap(
                                         alignment: WrapAlignment.spaceBetween,
                                         runSpacing: 8,

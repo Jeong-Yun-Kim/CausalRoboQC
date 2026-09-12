@@ -86,10 +86,9 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                             ),
                             const SizedBox(
                                 height: DashboardTheme.sectionSpacing),
-                            OutlinedButton.icon(
+                            OutlinedButton(
                               onPressed: _loadData,
-                              icon: const Icon(Icons.refresh),
-                              label: const Text('다시 시도'),
+                              child: const Text('다시 시도'),
                             ),
                           ],
                         ),
@@ -117,7 +116,6 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   _KpiItem(
                     '처리 제품',
                     '${data.processedProducts}건',
-                    Icons.inventory_2_outlined,
                     onTap: () => _showProductList(
                       data,
                       title: '처리 제품',
@@ -127,7 +125,6 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   _KpiItem(
                     '정상 제품',
                     '${data.normalProducts}건',
-                    Icons.verified_outlined,
                     tone: _QualityTone.good,
                     onTap: () => _showProductList(
                       data,
@@ -142,7 +139,6 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   _KpiItem(
                     '확인 필요',
                     '${data.reviewProducts}건',
-                    Icons.manage_search_outlined,
                     tone: _QualityTone.warning,
                     onTap: () => _showProductList(
                       data,
@@ -157,7 +153,6 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   _KpiItem(
                     '우선검사',
                     '${data.priorityProducts}건',
-                    Icons.priority_high,
                     tone: _QualityTone.danger,
                     onTap: () => _showProductList(
                       data,
@@ -171,14 +166,12 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   ),
                 ],
               ),
-              const SizedBox(height: DashboardTheme.sectionSpacing),
               _buildKpiSection(
                 '공정 상태',
                 [
                   _KpiItem(
                     '평균 작업시간',
                     '${data.averageWorkTimeSeconds.toStringAsFixed(1)}초',
-                    Icons.timer_outlined,
                     tone: _QualityTone.warning,
                     onTap: () {
                       final products = [...data.products]..sort(
@@ -197,7 +190,6 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   _KpiItem(
                     '평균 재시도',
                     '${data.averageRetries.toStringAsFixed(2)} 회/제품',
-                    Icons.replay_outlined,
                     onTap: () {
                       final products = data.products
                           .where((product) => product.retries > 0)
@@ -218,7 +210,6 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   _KpiItem(
                     '공정 이탈률',
                     '${data.processDeviationRate.toStringAsFixed(1)}%',
-                    Icons.alt_route_outlined,
                     tone: _QualityTone.warning,
                     onTap: () => _showProductList(
                       data,
@@ -233,7 +224,6 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                   _KpiItem(
                     '작업자 개입',
                     '${data.operatorInterventions}건',
-                    Icons.front_hand_outlined,
                     onTap: () => _showProductList(
                       data,
                       title: '작업자 개입 제품',
@@ -278,88 +268,29 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
 
   Widget _buildPageHeading() => DashboardHeading(
         title: '품질관리',
-        description: '최근 판정 기록 최대 50건 기준',
-        trailing: OutlinedButton.icon(
+        trailing: TextButton(
           onPressed: _loadData,
-          icon: const Icon(Icons.refresh_rounded, size: 17),
-          label: const Text('새로고침'),
+          child: const Text('새로고침'),
         ),
       );
 
-  Widget _buildKpiSection(String title, List<_KpiItem> items) {
-    if (title == '공정 상태') {
-      return LayoutBuilder(builder: (context, box) {
-        final columns = box.maxWidth >= 700 ? 4 : 2;
-        final width = (box.maxWidth - 12 * (columns - 1)) / columns;
-        return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: items
-                .map((item) => SizedBox(
-                      width: width,
-                      child: InkWell(
-                        onTap: item.onTap,
-                        borderRadius:
-                            BorderRadius.circular(DashboardTheme.radius),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                    height: 40,
-                                    child: Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: MetricLabel(item.label,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall))),
-                                Text(item.value,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium),
-                              ]),
-                        ),
-                      ),
-                    ))
-                .toList());
-      });
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(title, style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 14),
-        LayoutBuilder(builder: (context, constraints) {
-          final columns = constraints.maxWidth >= 700
-              ? 4
-              : constraints.maxWidth >= 320
-                  ? 2
-                  : 1;
-          final width = (constraints.maxWidth - 12 * (columns - 1)) / columns;
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: items
-                .map((item) => SizedBox(
-                      width: width,
-                      child: DashboardMetric(
-                        label: item.label,
-                        helpTerm: metricDescriptions.containsKey(item.label)
-                            ? item.label
-                            : null,
-                        value: item.value,
-                        icon: item.icon,
-                        color: _toneColor(item.tone),
-                        onTap: item.onTap,
-                      ),
-                    ))
-                .toList(growable: false),
-          );
-        }),
-      ],
-    );
-  }
+  Widget _buildKpiSection(String title, List<_KpiItem> items) => Wrap(
+        spacing: 28,
+        runSpacing: 4,
+        children: items
+            .map((item) => DashboardMetric(
+                  label: item.label,
+                  value: item.value,
+                  helpTerm: metricDescriptions.containsKey(item.label)
+                      ? item.label
+                      : null,
+                  color: title == '공정 상태'
+                      ? DashboardTheme.ink
+                      : _toneColor(item.tone),
+                  onTap: item.onTap,
+                ))
+            .toList(growable: false),
+      );
 
   Widget _buildWorkTimeTrend(DashboardData data) {
     return _section(
@@ -384,10 +315,10 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
           ),
           const SizedBox(height: 10),
           SizedBox(
-            height: 210,
+            height: data.workTimeTrend.isEmpty ? null : 210,
             child: data.workTimeTrend.isEmpty
                 ? const DashboardEmptyState(
-                    icon: Icons.show_chart_rounded, title: '작업시간 기록을 기다리고 있습니다')
+                    icon: Icons.show_chart_rounded, title: '작업시간 기록이 없습니다')
                 : CustomPaint(
                     painter: _WorkTimeChartPainter(
                       points: data.workTimeTrend,
@@ -470,20 +401,13 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
   Widget _buildProductTable(DashboardData data) {
     final products = data.sortedProducts;
     return _section(
-      '제품 목록',
+      '제품 목록 · 최근 최대 50건',
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            '우선검사 · 확인 필요 · 정상 순으로 표시',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: 10),
           if (products.isEmpty)
             const DashboardEmptyState(
-                icon: Icons.inventory_2_outlined,
-                title: '수집된 제품 기록이 없습니다',
-                description: '작업이 완료되면 제품별 품질 기록이 표시됩니다.')
+                icon: Icons.inventory_2_outlined, title: '수집된 제품 기록이 없습니다')
           else
             LayoutBuilder(
                 builder: (context, constraints) => SingleChildScrollView(
@@ -493,10 +417,6 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                             BoxConstraints(minWidth: constraints.maxWidth),
                         child: DataTable(
                           showCheckboxColumn: false,
-                          headingTextStyle:
-                              Theme.of(context).textTheme.labelLarge,
-                          dataRowMinHeight: 52,
-                          dataRowMaxHeight: 60,
                           columnSpacing: 24,
                           columns: const [
                             DataColumn(label: Text('제품 ID')),
@@ -606,38 +526,22 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                 const Divider(height: 1),
                 if (products.isEmpty)
                   const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 54, horizontal: 24),
-                    child: Column(
-                      children: [
-                        Icon(Icons.inbox_outlined, size: 38),
-                        SizedBox(height: 10),
-                        Text('해당하는 제품이 없습니다.'),
-                      ],
-                    ),
+                    padding: EdgeInsets.all(20),
+                    child: Text('해당하는 제품이 없습니다.'),
                   )
                 else
                   Flexible(
                     child: ListView.separated(
                       padding: const EdgeInsets.all(12),
                       itemCount: products.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (context, index) {
                         final product = products[index];
                         final reasons = product.observations.isEmpty
                             ? '-'
                             : product.observations.join(', ');
                         return Material(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerLowest,
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(
-                              color: Theme.of(context).dividerColor,
-                            ),
-                            borderRadius:
-                                BorderRadius.circular(DashboardTheme.radius),
-                          ),
-                          clipBehavior: Clip.antiAlias,
+                          color: Colors.transparent,
                           child: InkWell(
                             onTap: () {
                               selectedProduct = product;
@@ -659,13 +563,11 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                                         ),
                                       ),
                                       _gradeBadge(product.grade, compact: true),
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.chevron_right, size: 18),
                                     ],
                                   ),
                                   const SizedBox(height: 7),
                                   Text(
-                                    '작업시간 ${product.workTimeSeconds.toStringAsFixed(1)}s · '
+                                    '작업시간 ${product.workTimeSeconds.toStringAsFixed(1)}초 · '
                                     '재시도 ${product.retries}회',
                                     style:
                                         Theme.of(context).textTheme.bodySmall,
@@ -753,26 +655,26 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                           ...product.observations.map((reason) => Padding(
                               padding: const EdgeInsets.symmetric(vertical: 3),
                               child: Text(reason))),
-                        const Divider(height: 32),
+                        const Divider(height: 24),
                         Text('공정 데이터',
                             style: Theme.of(context).textTheme.titleMedium),
                         const SizedBox(height: 12),
                         _buildProductSummary(data, product),
-                        const Divider(height: 32),
+                        const Divider(height: 24),
                         RpfAnalysisPanel(
                             product: product,
                             source: widget.dataSource is RpfAnalysisDataSource
                                 ? widget.dataSource as RpfAnalysisDataSource
                                 : null),
                         if (product.timeline.isNotEmpty) ...[
-                          const Divider(height: 32),
+                          const Divider(height: 24),
                           Text('작업 이력',
                               style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 12),
                           _buildRpfTimeline(product),
                         ],
                         if (product.recommendations.isNotEmpty) ...[
-                          const Divider(height: 32),
+                          const Divider(height: 24),
                           Text('권장 점검',
                               style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 8),
@@ -817,52 +719,23 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
             .toList(),
       );
 
-  Widget _buildProductSummary(DashboardData data, ProductRpf product) {
-    final entries = [
-      ('총 작업시간', '${product.workTimeSeconds.toStringAsFixed(1)} s'),
-      ('재시도', '${product.retries}회'),
-      ('작업자 개입', '${product.operatorInterventions}회'),
-      ('오류', '${product.errorEvents}건'),
-    ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 550 ? 4 : 2;
-        final width = (constraints.maxWidth - (10 * (columns - 1))) / columns;
-        return Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: entries
-              .map(
-                (entry) => Container(
-                  width: width,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(DashboardTheme.radius),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.$1,
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        entry.$2,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-              .toList(growable: false),
-        );
-      },
-    );
-  }
+  Widget _buildProductSummary(DashboardData data, ProductRpf product) => Column(
+        children: [
+          for (final entry in [
+            ('총 작업시간', '${product.workTimeSeconds.toStringAsFixed(1)}초'),
+            ('재시도', '${product.retries}회'),
+            ('오류', '${product.errorEvents}건'),
+            ('작업자 개입', '${product.operatorInterventions}회'),
+          ])
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(children: [
+                Expanded(child: Text(entry.$1)),
+                Text(entry.$2),
+              ]),
+            ),
+        ],
+      );
 
   Widget _gradeBadge(QualityGrade grade, {bool compact = false}) =>
       DashboardStatusBadge(grade.label, color: _gradeColor(grade));
@@ -893,15 +766,13 @@ enum _QualityTone { neutral, good, warning, danger }
 class _KpiItem {
   const _KpiItem(
     this.label,
-    this.value,
-    this.icon, {
+    this.value, {
     this.tone = _QualityTone.neutral,
     required this.onTap,
   });
 
   final String label;
   final String value;
-  final IconData icon;
   final _QualityTone tone;
   final VoidCallback onTap;
 }

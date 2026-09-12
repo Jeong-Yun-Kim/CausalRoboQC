@@ -807,12 +807,6 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final desktopNavigation = width >= 900;
-    final title = switch (_pageIndex) {
-      0 => '대시보드',
-      1 => '로봇 제어',
-      2 => '품질관리',
-      _ => '데이터 조회',
-    };
 
     return Scaffold(
       body: SafeArea(
@@ -821,7 +815,7 @@ class _DashboardPageState extends State<DashboardPage> {
           if (desktopNavigation) _buildSidebar(),
           Expanded(
             child: Column(children: [
-              _buildTopBar(title, desktopNavigation),
+              if (!desktopNavigation) _buildTopBar(),
               Expanded(
                   child: switch (_pageIndex) {
                 0 => _buildDashboardPage(),
@@ -878,11 +872,8 @@ class _DashboardPageState extends State<DashboardPage> {
       color: DashboardTheme.navy,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         const Padding(
-          padding: EdgeInsets.fromLTRB(20, 24, 12, 32),
+          padding: EdgeInsets.fromLTRB(20, 24, 12, 24),
           child: Row(children: [
-            Icon(Icons.precision_manufacturing_outlined,
-                color: Colors.white, size: 20),
-            SizedBox(width: 8),
             Text('CausalRoboQC',
                 style: TextStyle(
                     color: Colors.white,
@@ -892,7 +883,7 @@ class _DashboardPageState extends State<DashboardPage> {
         ),
         Expanded(
             child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
+          padding: EdgeInsets.zero,
           children: List.generate(destinations.length, (index) {
             final item = destinations[index];
             final selected = index == _pageIndex;
@@ -902,8 +893,9 @@ class _DashboardPageState extends State<DashboardPage> {
                 color: selected
                     ? DashboardTheme.sidebarSelected
                     : Colors.transparent,
-                borderRadius: BorderRadius.circular(DashboardTheme.radius),
                 child: ListTile(
+                  shape: const RoundedRectangleBorder(),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
                   selected: selected,
                   selectedTileColor: DashboardTheme.sidebarSelected,
                   leading: Icon(item.$1,
@@ -923,38 +915,44 @@ class _DashboardPageState extends State<DashboardPage> {
             );
           }),
         )),
+        Material(
+          color: Colors.white,
+          child: Padding(
+              padding: const EdgeInsets.all(12), child: _buildEmergencyStop()),
+        ),
       ]),
     );
   }
 
-  Widget _buildTopBar(String title, bool desktop) => Container(
-        height: 60,
-        padding: EdgeInsets.symmetric(horizontal: desktop ? 24 : 16),
+  Widget _buildEmergencyStop() => OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+            foregroundColor: DashboardTheme.danger,
+            side: const BorderSide(color: DashboardTheme.danger)),
+        onPressed: !_serialReady || _safetyBusy
+            ? null
+            : () => _safetyControl('estop', '비상 정지 요청 완료'),
+        icon: const Icon(Icons.stop_circle_outlined, size: 18),
+        label: const Text('E-STOP'),
+      );
+
+  Widget _buildTopBar() => Container(
+        height: 56,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: const BoxDecoration(
-            color: Colors.white,
             border: Border(bottom: BorderSide(color: DashboardTheme.border))),
         child: Row(children: [
-          Expanded(
-              child: Text(desktop ? title : 'CausalRoboQC',
-                  style: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600))),
-          if (_pageIndex < 2)
-            IconButton(
-                tooltip: '새로고침',
-                onPressed: _polling ? null : () => _refresh(full: true),
-                icon: const Icon(Icons.refresh, size: 20)),
-          const SizedBox(width: 8),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-                foregroundColor: DashboardTheme.danger,
-                side: const BorderSide(color: DashboardTheme.danger)),
-            onPressed: !_serialReady || _safetyBusy
-                ? null
-                : () => _safetyControl('estop', '비상 정지 요청 완료'),
-            icon: const Icon(Icons.stop_circle_outlined, size: 18),
-            label: const Text('E-STOP'),
-          ),
+          const Expanded(
+              child: Text('CausalRoboQC',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600))),
+          _buildEmergencyStop(),
         ]),
+      );
+
+  Widget _pageHeading(String title) => DashboardHeading(
+        title: title,
+        trailing: TextButton(
+            onPressed: _polling ? null : () => _refresh(full: true),
+            child: const Text('새로고침')),
       );
 
   Widget _buildRobotControlPage() => RefreshIndicator(
@@ -977,7 +975,7 @@ class _DashboardPageState extends State<DashboardPage> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: DashboardTheme.pagePadding(constraints.maxWidth),
             children: [
-              const DashboardHeading(title: '로봇 제어'),
+              _pageHeading('로봇 제어'),
               _buildConnectionBanner(),
               const SizedBox(height: DashboardTheme.sectionSpacing),
               _buildSafety(),
@@ -1007,12 +1005,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: DashboardTheme.pagePadding(constraints.maxWidth),
                   children: [
-                    DashboardHeading(
-                        title: '대시보드',
-                        trailing: OutlinedButton.icon(
-                            onPressed: () => setState(() => _pageIndex = 1),
-                            icon: const Icon(Icons.tune, size: 18),
-                            label: const Text('로봇 제어'))),
+                    _pageHeading('대시보드'),
                     _buildConnectionBanner(),
                     const SizedBox(height: DashboardTheme.sectionSpacing),
                     Builder(
@@ -1021,66 +1014,55 @@ class _DashboardPageState extends State<DashboardPage> {
                         return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Text('최근 제품 현황',
+                              Text('최근 제품 · 최대 50건',
                                   style:
                                       Theme.of(context).textTheme.titleLarge),
-                              const SizedBox(height: 4),
-                              Text('최근 판정 기록 최대 50건 기준',
-                                  style: Theme.of(context).textTheme.bodySmall),
-                              const SizedBox(height: 12),
-                              LayoutBuilder(builder: (context, box) {
-                                final columns = box.maxWidth >= 700 ? 4 : 2;
-                                final width =
-                                    (box.maxWidth - 12 * (columns - 1)) /
-                                        columns;
-                                return Wrap(
-                                    spacing: 12,
-                                    runSpacing: 12,
-                                    children: [
-                                      (
-                                        '처리 제품',
-                                        data == null
-                                            ? '-'
-                                            : '${data.processedProducts}건',
-                                        DashboardTheme.ink
-                                      ),
-                                      (
-                                        '공정 이탈률',
-                                        data == null
-                                            ? '-'
-                                            : '${data.processDeviationRate.toStringAsFixed(1)}%',
-                                        DashboardTheme.ink
-                                      ),
-                                      (
-                                        '확인 필요',
-                                        data == null
-                                            ? '-'
-                                            : '${data.reviewProducts}건',
-                                        DashboardTheme.warning
-                                      ),
-                                      (
-                                        '우선검사',
-                                        data == null
-                                            ? '-'
-                                            : '${data.priorityProducts}건',
-                                        DashboardTheme.danger
-                                      ),
-                                    ]
-                                        .map((item) => SizedBox(
-                                            width: width,
-                                            child: DashboardMetric(
-                                              label: item.$1,
-                                              value: item.$2,
-                                              color: item.$3,
-                                              helpTerm: metricDescriptions
-                                                      .containsKey(item.$1)
-                                                  ? item.$1
-                                                  : null,
-                                              onTap: () => setState(
-                                                  () => _pageIndex = 2),
-                                            )))
-                                        .toList());
-                              }),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                  spacing: 28,
+                                  runSpacing: 4,
+                                  children: [
+                                    (
+                                      '처리 제품',
+                                      data == null
+                                          ? '-'
+                                          : '${data.processedProducts}건',
+                                      DashboardTheme.ink
+                                    ),
+                                    (
+                                      '공정 이탈률',
+                                      data == null
+                                          ? '-'
+                                          : '${data.processDeviationRate.toStringAsFixed(1)}%',
+                                      DashboardTheme.ink
+                                    ),
+                                    (
+                                      '확인 필요',
+                                      data == null
+                                          ? '-'
+                                          : '${data.reviewProducts}건',
+                                      DashboardTheme.warning
+                                    ),
+                                    (
+                                      '우선검사',
+                                      data == null
+                                          ? '-'
+                                          : '${data.priorityProducts}건',
+                                      DashboardTheme.danger
+                                    ),
+                                  ]
+                                      .map((item) => DashboardMetric(
+                                            label: item.$1,
+                                            value: item.$2,
+                                            color: item.$3,
+                                            helpTerm: metricDescriptions
+                                                    .containsKey(item.$1)
+                                                ? item.$1
+                                                : null,
+                                            onTap: () =>
+                                                setState(() => _pageIndex = 2),
+                                          ))
+                                      .toList()),
                               if (_qualityError)
                                 const Padding(
                                     padding: EdgeInsets.only(top: 8),
@@ -1089,20 +1071,9 @@ class _DashboardPageState extends State<DashboardPage> {
                       },
                     ),
                     const SizedBox(height: DashboardTheme.sectionSpacing),
-                    if (constraints.maxWidth >= 960)
-                      Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildRecentRuns()),
-                            const SizedBox(
-                                width: DashboardTheme.sectionSpacing),
-                            Expanded(child: _buildDashboardEvents()),
-                          ])
-                    else ...[
-                      _buildRecentRuns(),
-                      const SizedBox(height: DashboardTheme.sectionSpacing),
-                      _buildDashboardEvents()
-                    ],
+                    _buildRecentRuns(),
+                    const SizedBox(height: DashboardTheme.sectionSpacing),
+                    _buildDashboardEvents(),
                   ],
                 )),
       );
@@ -1168,10 +1139,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         '${_formatTime(run['started_at'])} · ${run['cycle_count'] ?? 0}회',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis),
-                    trailing: DashboardStatusBadge(_runStatus(run['status']),
-                        color: run['status'] == 'completed'
-                            ? DashboardTheme.success
-                            : DashboardTheme.muted),
+                    trailing: Text(_runStatus(run['status'])),
                     onTap: () {
                       setState(() {
                         _selectedRunId = id;
@@ -1202,9 +1170,14 @@ class _DashboardPageState extends State<DashboardPage> {
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final event = events[index];
-                  return ListTile(
-                      title: Text(_eventLabel(event['name'])!),
-                      subtitle: Text(_formatTime(event['created_at'])));
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    child: Wrap(spacing: 20, runSpacing: 4, children: [
+                      Text(_formatTime(event['created_at']),
+                          style: Theme.of(context).textTheme.bodySmall),
+                      Text(_eventLabel(event['name'])!),
+                    ]),
+                  );
                 },
               ),
             ),
@@ -1221,32 +1194,30 @@ class _DashboardPageState extends State<DashboardPage> {
             : _estopActive
                 ? '비상 정지 상태입니다. 안전 확인 후 RESET을 누르세요.'
                 : _savedPoseCount < 7
-                    ? '필수 Pose 설정이 필요합니다 ($_savedPoseCount/7).'
-                    : _runActive
-                        ? '현재 작업을 실행하고 있습니다.'
-                        : '작업을 실행할 수 있습니다.';
-    return _section(
-        '시스템 상태',
-        Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Wrap(spacing: 24, runSpacing: 12, children: [
-            _connectionStatus('서버', _backendOnline),
-            _connectionStatus('로봇', _backendOnline && _serialReady),
-            Text(
-                '최근 작업 · ${latest == null ? '기록 없음' : _runStatus(latest['status'])}'),
-            if (run.isNotEmpty && run['current_pose'] != null)
-              Text('현재 Pose · ${run['current_pose']}'),
-          ]),
-          const SizedBox(height: 12),
-          Text(message, style: Theme.of(context).textTheme.bodySmall),
-        ]));
+                    ? '필수 포즈 설정이 필요합니다 ($_savedPoseCount/7).'
+                    : null;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Wrap(spacing: 24, runSpacing: 12, children: [
+        _connectionStatus('서버', _backendOnline),
+        _connectionStatus('로봇', _backendOnline && _serialReady),
+        Text(
+            '최근 작업 · ${latest == null ? '기록 없음' : _runStatus(latest['status'])}'),
+        if (run.isNotEmpty && run['current_pose'] != null)
+          Text('현재 포즈 · ${run['current_pose']}'),
+      ]),
+      if (message != null) ...[
+        const SizedBox(height: 8),
+        Text(message, style: Theme.of(context).textTheme.bodySmall),
+      ],
+      const Divider(height: 24),
+    ]);
   }
 
   Widget _connectionStatus(String label, bool connected) =>
       Row(mainAxisSize: MainAxisSize.min, children: [
         Text(label),
         const SizedBox(width: 8),
-        DashboardStatusBadge(connected ? '연결됨' : '연결 대기',
-            color: connected ? DashboardTheme.success : DashboardTheme.muted),
+        Text(connected ? '연결됨' : '연결 대기'),
       ]);
 
   Widget _section(String title, Widget child) =>
@@ -1294,16 +1265,14 @@ class _DashboardPageState extends State<DashboardPage> {
         '작업 실행',
         Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Wrap(spacing: 8, runSpacing: 8, children: [
-            FilledButton.icon(
+            FilledButton(
                 onPressed: _readyToRun ? () => _startRun(false) : null,
-                icon: const Icon(Icons.play_arrow, size: 18),
-                label: const Text('1회 실행')),
-            OutlinedButton.icon(
+                child: const Text('1회 실행')),
+            OutlinedButton(
                 onPressed: _readyToRun && _repeatUnlocked
                     ? () => _startRun(true)
                     : null,
-                icon: const Icon(Icons.repeat, size: 18),
-                label: const Text('반복 실행')),
+                child: const Text('반복 실행')),
           ]),
           const SizedBox(height: 12),
           Text(run.isEmpty
@@ -1312,31 +1281,37 @@ class _DashboardPageState extends State<DashboardPage> {
         ]));
   }
 
-  Widget _buildSafety() => _section(
-      '안전 제어',
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        OutlinedButton(
-            onPressed: !_serialReady || _safetyBusy
-                ? null
-                : () => _safetyControl('stop', '작업 정지 요청 완료'),
-            child: const Text('STOP')),
-        FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: DashboardTheme.danger,
-                foregroundColor: Colors.white),
-            onPressed: !_serialReady || _safetyBusy
-                ? null
-                : () => _safetyControl('estop', '비상 정지 요청 완료'),
-            child: const Text('E-STOP')),
-        OutlinedButton(
-            onPressed: !_serialReady || _safetyBusy || !_estopActive
-                ? null
-                : () => _safetyControl('reset', '비상 정지 해제'),
-            child: const Text('RESET')),
-        OutlinedButton(
-            onPressed: !_serialReady || _safetyBusy ? null : _confirmDetach,
-            child: const Text('DETACH')),
-      ]));
+  Widget _buildSafety() => Container(
+      padding: const EdgeInsets.all(DashboardTheme.cardPadding),
+      decoration: BoxDecoration(
+          color: DashboardTheme.background,
+          border: Border.all(color: DashboardTheme.border),
+          borderRadius: BorderRadius.circular(DashboardTheme.radius)),
+      child: _section(
+          '안전 제어',
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            OutlinedButton(
+                onPressed: !_serialReady || _safetyBusy
+                    ? null
+                    : () => _safetyControl('stop', '작업 정지 요청 완료'),
+                child: const Text('STOP')),
+            FilledButton(
+                style: FilledButton.styleFrom(
+                    backgroundColor: DashboardTheme.danger,
+                    foregroundColor: Colors.white),
+                onPressed: !_serialReady || _safetyBusy
+                    ? null
+                    : () => _safetyControl('estop', '비상 정지 요청 완료'),
+                child: const Text('E-STOP')),
+            OutlinedButton(
+                onPressed: !_serialReady || _safetyBusy || !_estopActive
+                    ? null
+                    : () => _safetyControl('reset', '비상 정지 해제'),
+                child: const Text('RESET')),
+            OutlinedButton(
+                onPressed: !_serialReady || _safetyBusy ? null : _confirmDetach,
+                child: const Text('DETACH')),
+          ])));
 
   Widget _buildJoints() {
     final controlsEnabled =
@@ -1405,7 +1380,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     known == null ? '미설정' : '$known°',
                     textAlign: TextAlign.end,
                     style: TextStyle(
-                      color: known == null ? DashboardTheme.warning : null,
+                      color: known == null ? DashboardTheme.muted : null,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -1421,15 +1396,14 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildPoses() {
     final saved = _poses[_selectedPose];
     return _section(
-      'Pose',
+      '포즈',
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           DropdownButtonFormField<String>(
             initialValue: _selectedPose,
             decoration: const InputDecoration(
-              labelText: 'Pose',
-              border: OutlineInputBorder(),
+              labelText: '포즈',
             ),
             items: _requiredPoses
                 .map(
@@ -1452,23 +1426,24 @@ class _DashboardPageState extends State<DashboardPage> {
                       saved.length, (index) => 'J${index + 1} ${saved[index]}°')
                   .join(' · ')),
           const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: _busy ||
-                    _safetyBusy ||
-                    _runActive ||
-                    !_serialReady ||
-                    _estopActive ||
-                    saved == null
-                ? null
-                : () => _perform('$_selectedPose 이동 요청 완료', () async {
-                      await _request(
-                        'POST',
-                        '/api/poses/${Uri.encodeComponent(_selectedPose)}/move',
-                      );
-                    }),
-            icon: const Icon(Icons.directions_run),
-            label: const Text('선택 Pose 이동'),
-          ),
+          Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton(
+                onPressed: _busy ||
+                        _safetyBusy ||
+                        _runActive ||
+                        !_serialReady ||
+                        _estopActive ||
+                        saved == null
+                    ? null
+                    : () => _perform('$_selectedPose 이동 요청 완료', () async {
+                          await _request(
+                            'POST',
+                            '/api/poses/${Uri.encodeComponent(_selectedPose)}/move',
+                          );
+                        }),
+                child: const Text('선택 포즈 이동'),
+              )),
         ],
       ),
     );
