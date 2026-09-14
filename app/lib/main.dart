@@ -12,6 +12,7 @@ import 'data_browser_page.dart';
 import 'quality_dashboard_api.dart';
 import 'quality_dashboard_data.dart';
 import 'metric_help.dart';
+import 'copilot_overlay.dart';
 
 const _configuredApiBase = String.fromEnvironment(
   'API_BASE_URL',
@@ -808,7 +809,7 @@ class _DashboardPageState extends State<DashboardPage> {
     final width = MediaQuery.sizeOf(context).width;
     final desktopNavigation = width >= 900;
 
-    return Scaffold(
+    return CopilotOverlay(child: Scaffold(
       body: SafeArea(
           child: Row(
         children: [
@@ -857,7 +858,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ],
             ),
-    );
+    ));
   }
 
   Widget _buildSidebar() {

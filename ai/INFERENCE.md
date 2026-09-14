@@ -1,5 +1,7 @@
 # RPF 분석 연결
 
+선택적 Local LLM 코파일럿 실행과 API는 [COPILOT.md](COPILOT.md)를 참고하세요.
+
 기존 모델을 재학습하거나 CSV를 생성하지 않고 사용합니다. 노트북만 모델을
 로드하며, Robot API 서버는 RPF 준비·HTTP 호출·SQLite 저장만 담당합니다.
 규칙 기반 grade/grade_reasons는 분석 요청으로 바뀌지 않습니다.

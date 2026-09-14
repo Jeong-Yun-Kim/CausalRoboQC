@@ -11,6 +11,7 @@ from .analysis_client import AnalysisClient, AnalysisError
 from .analysis_service import RpfAnalysisService
 from .database import Database
 from .data_browser import router as data_browser_router
+from .copilot import router as copilot_router
 from .service import RobotError, RobotService, WebSocketHub
 
 
@@ -55,6 +56,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="CausalRoboQC Robot Arm API", version="0.1.0", lifespan=lifespan)
 app.include_router(data_browser_router)
+app.include_router(copilot_router)
 
 configured_origins = [
     item.strip() for item in os.getenv("CORS_ORIGINS", "").split(",") if item.strip()

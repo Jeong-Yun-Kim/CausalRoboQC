@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import FastAPI, Request
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field
+from .copilot import router as copilot_router
 
 from ai.modeling import (
     FEATURE_NAMES, RISK_FEATURE_NAMES, SEQUENCE_FEATURE_NAMES, SyntheticModels,
@@ -64,6 +65,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="CausalRoboQC Laptop ML/DL", lifespan=lifespan)
+app.include_router(copilot_router)
 
 
 @app.get("/health")
