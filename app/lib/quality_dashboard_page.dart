@@ -7,6 +7,7 @@ import 'metric_help.dart';
 import 'quality_dashboard_api.dart';
 import 'quality_dashboard_data.dart';
 import 'rpf_analysis_panel.dart';
+import 'rpf_analysis_overview.dart';
 
 class QualityDashboardPage extends StatefulWidget {
   const QualityDashboardPage({
@@ -240,6 +241,8 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
               const SizedBox(height: DashboardTheme.groupSpacing),
               _buildProductTable(data),
               const SizedBox(height: DashboardTheme.groupSpacing),
+              RpfAnalysisOverview(products: data.products),
+              const SizedBox(height: DashboardTheme.groupSpacing),
               if (wide)
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Expanded(child: _buildWorkTimeTrend(data)),
@@ -252,14 +255,6 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                 _buildAbnormalEvents(data),
               ],
               const SizedBox(height: 8),
-              if (data.isMock)
-                Text(
-                  '예시 데이터',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
             ],
           ),
         );
@@ -424,6 +419,13 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                             DataColumn(label: MetricLabel('등급')),
                             DataColumn(label: Text('작업시간'), numeric: true),
                             DataColumn(label: Text('재시도'), numeric: true),
+                            DataColumn(
+                                label: MetricLabel('공정 이상도'), numeric: true),
+                            DataColumn(
+                                label: MetricLabel('검사 위험도'), numeric: true),
+                            DataColumn(
+                                label: MetricLabel('공정 단계 시간 이상도'),
+                                numeric: true),
                             DataColumn(label: Text('판정 근거')),
                             DataColumn(label: Text('상태')),
                           ],
@@ -451,6 +453,14 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                                 DataCell(Text(
                                     '${product.workTimeSeconds.toStringAsFixed(1)}초')),
                                 DataCell(Text('${product.retries}회')),
+                                for (final score in [
+                                  product.analysis?.anomalyScore,
+                                  product.analysis?.inspectionRiskScore,
+                                  product.analysis?.timeseriesAnomalyScore
+                                ])
+                                  DataCell(Text(score == null
+                                      ? '—'
+                                      : '${(score * 100).toStringAsFixed(1)}%')),
                                 DataCell(SizedBox(
                                     width: 220,
                                     child: Text(gradeReasons,

@@ -70,6 +70,7 @@ final class ProductRpf {
     this.productGroup,
     this.finishedAt,
     this.isCompleted = false,
+    this.analysis,
   });
 
   final String id;
@@ -77,6 +78,7 @@ final class ProductRpf {
   final String? productGroup;
   final DateTime? finishedAt;
   final bool isCompleted;
+  final RpfAnalysisResult? analysis;
   final QualityGrade grade;
   final double workTimeSeconds;
   final int retries;
@@ -170,10 +172,18 @@ final class RpfAnalysisResult {
 }
 
 final class RpfAnalysisSnapshot {
-  const RpfAnalysisSnapshot({this.result, this.isPending = false});
+  const RpfAnalysisSnapshot(
+      {this.result,
+      this.isPending = false,
+      this.stages = const [],
+      this.recommendedChecks = const [],
+      this.reportDraft});
 
   final RpfAnalysisResult? result;
   final bool isPending;
+  final List<RpfStep> stages;
+  final List<String> recommendedChecks;
+  final String? reportDraft;
 }
 
 abstract interface class RpfAnalysisDataSource {

@@ -12,6 +12,7 @@ from .analysis_service import RpfAnalysisService
 from .database import Database
 from .data_browser import router as data_browser_router
 from .copilot import router as copilot_router
+from .rpf_presentation import presentation
 from .service import RobotError, RobotService, WebSocketHub
 
 
@@ -147,8 +148,9 @@ async def get_rpf_records(
     request: Request,
     limit: Annotated[int, Query(ge=1, le=500)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    include_analysis: bool = False,
 ) -> dict[str, Any]:
-    return {"items": service_from(request).database.list_rpfs(limit, offset)}
+    return {"items": service_from(request).database.list_rpfs(limit, offset, include_analysis=include_analysis)}
 
 
 @app.get("/api/rpf/{rpf_id}")
@@ -160,8 +162,11 @@ async def get_rpf_record(
     record = database.get_rpf(rpf_id)
     if record is None:
         raise HTTPException(status_code=404, detail="RPF not found")
-    return {**record, "events": database.list_rpf_events(rpf_id),
-            "analysis_result": database.get_analysis_result(rpf_id),
+    events = database.list_rpf_events(rpf_id)
+    analysis = database.get_analysis_result(rpf_id)
+    return {**record, "events": events,
+            "analysis_result": analysis,
+            "presentation": presentation(record, events, analysis),
             "analysis_pending": service.analysis.is_pending(rpf_id)}
 
 

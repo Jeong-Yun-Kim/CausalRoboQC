@@ -13,6 +13,10 @@ async (page) => {
     await page.mouse.move(0, 0);
     await page.waitForTimeout(200); // Flutter paints asynchronously to the canvas.
   }
+  async function scan() {
+    const text = await page.locator('body').ariaSnapshot();
+    if (/데모|합성|테스트|\bdemo\b|synthetic/i.test(text)) throw Error('Forbidden visible label: ' + text);
+  }
   async function ask(question, expected = 200) {
     const input = page.getByRole('textbox', {name: '질문을 입력하세요'});
     await input.click();
@@ -29,8 +33,10 @@ async (page) => {
     const body = await response.json();
     if (response.status() !== expected) throw Error(JSON.stringify(body));
     await page.waitForTimeout(200);
+    if (/데모|합성|테스트|\bdemo\b|synthetic/i.test(JSON.stringify({answer: body.answer, table: body.table, chart: body.chart}))) throw Error('Forbidden answer label');
+    await scan();
     checks.push({question, status: response.status(), chart: body.chart?.type ?? null,
-                 rows: body.table?.rows.length ?? 0, demo: body.demo_data});
+                 rows: body.table?.rows.length ?? 0});
     return body;
   }
 
@@ -48,18 +54,27 @@ async (page) => {
   checks.push('quality menu open');
   const help = await ask('CSV 다운로드는 어떻게 해?');
   if (!help.answer.includes('전체 제품')) throw Error('Missing CSV help');
-  const product = await ask('DEMO-RPF-014가 왜 확인 필요야?');
-  if (product.table.rows[0][0] !== 'DEMO-RPF-014' || !product.demo_data) throw Error('Product mismatch');
-  const compare = await ask('DEMO-RPF-001과 DEMO-RPF-002 비교해줘');
+  const product = await ask('RPF-014가 왜 확인 필요야?');
+  if (product.table.rows[0][0] !== 'RPF-014' || !product.demo_data) throw Error('Product mismatch');
+  const compare = await ask('RPF-001과 RPF-002 비교해줘');
   if (compare.table.rows.length !== 2) throw Error('Missing comparison');
   const bar = await ask('제품군별 평균 작업시간 그래프로 보여줘');
   if (bar.chart.type !== 'bar' || bar.chart.labels.join() !== 'A,B,C') throw Error('Missing bar');
   const line = await ask('최근 등급 추세 그래프로 보여줘');
   if (line.chart.type !== 'line') throw Error('Missing line');
-  const missing = await ask('DEMO-RPF-999 설명해줘');
+  const missing = await ask('RPF-999 설명해줘');
   if (missing.answer !== '현재 데이터에서 확인할 수 없습니다.') throw Error('Invented product');
-  const unanalysed = await ask('최근 20개 제품 공정 이상도 그래프로 보여줘');
-  if (unanalysed.chart !== null || !unanalysed.answer.includes('분석 결과 없음')) throw Error('Invented score');
+  const stored = (await (await page.request.get('http://127.0.0.1:18000/api/data/rpf?limit=100')).json()).items;
+  for (const [label, key] of [['공정 이상도', 'anomaly_score'], ['검사 위험도', 'inspection_risk_score'], ['공정 단계 시간 이상도', 'timeseries_anomaly_score']]) {
+    const reply = await ask(`최근 30개 제품 ${label} 그래프로 보여줘`);
+    if (!reply.chart || reply.chart.labels.length !== 30) throw Error('Missing analysis chart');
+    for (let i = 0; i < 30; i++) {
+      const row = stored.find(row => row.product_id === reply.chart.labels[i]);
+      if (row[key] == null || reply.chart.series[0].values[i] !== row[key]) throw Error('Score mismatch');
+    }
+  }
+  const report = await ask('RPF-014 품질보고서 초안 작성해줘');
+  if (!report.answer.includes('품질보고서 초안')) throw Error('Missing report');
 
   await page.request.post('http://127.0.0.1:11435/__test__/offline', {data: {offline: true}});
   try {
@@ -75,6 +90,7 @@ async (page) => {
     await click(toggle());
     const history = await panel().ariaSnapshot();
     if (!history.includes('CSV 다운로드') && !history.includes('로컬 AI 서버 상태')) throw Error('Conversation lost');
+    await scan();
     checks.push(`${menu}: conversation retained`);
   }
   await click(close());

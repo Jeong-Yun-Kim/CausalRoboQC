@@ -39,19 +39,29 @@ final class ApiQualityDashboardDataSource
   Future<RpfAnalysisSnapshot> loadAnalysis(int rpfId) async {
     final detail = await _analysisRequest(rpfId);
     final result = detail['analysis_result'];
+    final presentation = detail['presentation'] as Map?;
     return RpfAnalysisSnapshot(
       result: result == null
           ? null
           : RpfAnalysisResult.fromJson(
               Map<String, dynamic>.from(result as Map)),
       isPending: detail['analysis_pending'] == true,
+      stages: (presentation?['stages'] as List? ?? [])
+          .map((stage) => RpfStep(
+              name: stage['name'] as String,
+              detail:
+                  '${((stage['duration_ms'] as num) / 1000).toStringAsFixed(3)}초'))
+          .toList(),
+      recommendedChecks:
+          (presentation?['recommended_checks'] as List? ?? []).cast<String>(),
+      reportDraft: presentation?['report_draft'] as String?,
     );
   }
 
   @override
   Future<DashboardData> load() async {
     final response = await http
-        .get(_uri('/api/rpf?limit=50&offset=0'))
+        .get(_uri('/api/rpf?limit=50&offset=0&include_analysis=true'))
         .timeout(const Duration(seconds: 15));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception('RPF API 오류: HTTP ${response.statusCode}');
@@ -147,6 +157,10 @@ final class ApiQualityDashboardDataSource
       productGroup: item['product_group']?.toString(),
       finishedAt: DateTime.tryParse(item['finished_at']?.toString() ?? ''),
       isCompleted: status == 'completed',
+      analysis: item['analysis_result'] == null
+          ? null
+          : RpfAnalysisResult.fromJson(
+              Map<String, dynamic>.from(item['analysis_result'] as Map)),
       grade: grade,
       workTimeSeconds: _number(item['work_time_ms']) / 1000,
       retries: _integer(item['retry_count']),

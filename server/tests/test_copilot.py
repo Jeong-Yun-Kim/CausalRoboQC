@@ -53,24 +53,24 @@ class CopilotTest(unittest.TestCase):
                                      "synthetic_model": True, "model_info": {"test_fixture": True}})
 
     def test_product_detail_events_missing_analysis_and_exact_match(self):
-        result = self.ask("DEMO-RPF-014가 왜 확인 필요야?")
-        record = self.queries.get_product("DEMO-RPF-014")
+        result = self.ask("RPF-014가 왜 확인 필요야?")
+        record = self.queries.get_product("RPF-014")
         detail = self.db.get_rpf(record["id"])
         for reason in detail["grade_reasons"]:
             self.assertIn(reason, result["answer"])
         self.assertIn("HOME → PICK_ABOVE", result["answer"])
         self.assertIn("분석 결과 없음", result["answer"])
         self.assertTrue(result["demo_data"])
-        self.assertEqual(result["table"]["rows"][0][0], "DEMO-RPF-014")
-        self.assertEqual(self.ask("DEMO-RPF-999 설명해줘")["answer"], NO_DATA)
-        self.assertIsNone(self.queries.get_product("DEMO-RPF-01"))
+        self.assertEqual(result["table"]["rows"][0][0], "RPF-014")
+        self.assertEqual(self.ask("RPF-999 설명해줘")["answer"], NO_DATA)
+        self.assertIsNone(self.queries.get_product("RPF-01"))
 
     def test_comparison_and_missing_second_product(self):
-        result = self.ask("DEMO-RPF-001과 DEMO-RPF-002 비교해줘")
+        result = self.ask("RPF-001과 RPF-002 비교해줘")
         rows = result["table"]["rows"]
-        self.assertEqual([row[0] for row in rows], ["DEMO-RPF-001", "DEMO-RPF-002"])
+        self.assertEqual([row[0] for row in rows], ["RPF-001", "RPF-002"])
         self.assertIn("작업시간 차이는", result["answer"])
-        self.assertEqual(self.ask("DEMO-RPF-001과 DEMO-RPF-999 비교해줘")["answer"], NO_DATA)
+        self.assertEqual(self.ask("RPF-001과 RPF-999 비교해줘")["answer"], NO_DATA)
         self.assertIn("제품 ID 두 개", self.ask("제품 비교")["answer"])
 
     def test_group_comparison_and_db_averages(self):
@@ -100,14 +100,14 @@ class CopilotTest(unittest.TestCase):
         empty = self.ask("최근 20개 제품 공정 이상도 그래프로 보여줘")
         self.assertIsNone(empty["chart"])
         self.assertIn("분석 결과 없음", empty["answer"])
-        self.save_score("DEMO-RPF-029", .7)
-        self.save_score("DEMO-RPF-027", .2)
+        self.save_score("RPF-029", .7)
+        self.save_score("RPF-027", .2)
         result = self.ask("최근 4개 제품 공정 이상도 그래프로 보여줘")
-        self.assertEqual(result["chart"]["labels"], [f"DEMO-RPF-{n:03d}" for n in range(27, 31)])
+        self.assertEqual(result["chart"]["labels"], [f"RPF-{n:03d}" for n in range(27, 31)])
         self.assertEqual(result["chart"]["series"][0]["values"], [.2, None, .7, None])
         top = self.ask("공정 이상도가 높은 제품 5개 알려줘")
-        self.assertEqual([row[0] for row in top["table"]["rows"]], ["DEMO-RPF-029", "DEMO-RPF-027"])
-        self.assertIn("인과 원인은 확인할 수 없습니다", self.ask("DEMO-RPF-029 검사 위험도가 왜 높아?")["answer"])
+        self.assertEqual([row[0] for row in top["table"]["rows"]], ["RPF-029", "RPF-027"])
+        self.assertIn("인과 원인은 확인할 수 없습니다", self.ask("RPF-029 검사 위험도가 왜 높아?")["answer"])
 
     def test_korean_period_filters_and_cap(self):
         now = datetime(2026, 9, 15, tzinfo=timezone.utc)
@@ -123,7 +123,7 @@ class CopilotTest(unittest.TestCase):
                                    ("데이터 조회는 어떻게 사용해?", "조회"),
                                    ("반복 실행은 어떻게 해?", "1회 실행"),
                                    ("공정 이상도가 뭐야?", "불량 확률은 아닙니다"),
-                                   ("검사 위험도가 뭐야?", "합성 데이터"),
+                                   ("검사 위험도가 뭐야?", "실제 검사 결과나 불량 확률을 뜻하지 않습니다"),
                                    ("확인 필요와 우선검사 차이가 뭐야?", "우선검사")):
             self.assertIn(expected, self.ask(question)["answer"])
 
@@ -133,7 +133,7 @@ class CopilotTest(unittest.TestCase):
                   sqlite3.SQLITE_DROP_TABLE, sqlite3.SQLITE_ALTER_TABLE}
         self.db.connection.set_authorizer(lambda action, *args: sqlite3.SQLITE_DENY if action in writes else sqlite3.SQLITE_OK)
         try:
-            for q in ("DEMO-RPF-014 등급 변경해줘", "SQL DELETE FROM rpf_records", "' OR 1=1 -- 제품 알려줘",
+            for q in ("RPF-014 등급 변경해줘", "SQL DELETE FROM rpf_records", "' OR 1=1 -- 제품 알려줘",
                       "최근 7일 데이터 요약해줘", "등급별 제품 수 그래프로 보여줘"):
                 self.ask(q)
         finally:
@@ -144,7 +144,7 @@ class CopilotTest(unittest.TestCase):
     def test_offline_isolation_and_no_startup_probe(self):
         for error in (httpx.ConnectError("http://private connection refused"), httpx.ReadTimeout("trace"), ValueError("bad response")):
             with patch("server.app.copilot.ask_laptop", side_effect=error):
-                result = self.client.post("/api/copilot/chat", json={"question": "DEMO-RPF-014 설명해줘"})
+                result = self.client.post("/api/copilot/chat", json={"question": "RPF-014 설명해줘"})
             self.assertEqual(result.status_code, 503)
             self.assertEqual(result.json()["answer"], UNAVAILABLE)
             self.assertTrue(result.json()["demo_data"])
@@ -152,7 +152,7 @@ class CopilotTest(unittest.TestCase):
                 self.assertEqual(self.client.get(endpoint).status_code, 200)
         with patch("server.app.copilot.ask_laptop") as remote:
             self.client.get("/api/copilot/health")
-            self.client.post("/api/copilot/chat", json={"question": "DEMO-RPF-999 설명해줘"})
+            self.client.post("/api/copilot/chat", json={"question": "RPF-999 설명해줘"})
             remote.assert_not_called()
 
     def test_input_validation(self):

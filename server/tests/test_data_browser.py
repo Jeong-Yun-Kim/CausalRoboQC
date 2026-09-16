@@ -145,21 +145,21 @@ class DataBrowserTest(unittest.TestCase):
     def test_demo_filters_and_export_all_pages_without_inference(self):
         summary = seed_demo(self.path, Path("server/config/rpf_rules.json"))
         self.assertEqual(summary["product_groups"], {"A": 10, "B": 10, "C": 10})
-        demo = self.query(product_id="DEMO-RPF-")
+        demo = self.query(product_id="RPF-")
         self.assertEqual(demo["total"], 30)
         self.assertTrue(all(row[key] is None for row in demo["items"] for key in CSV_COLUMNS[-3:]))
         for params, expected in (({"product_group": "A"}, 10), ({"product_group": "B"}, 10),
                                  ({"grade": "normal"}, 22), ({"grade": "priority"}, 2),
-                                 ({"product_id": "DEMO-RPF-001"}, 1)):
-            self.assertEqual(self.assert_parity({"product_id": "DEMO-RPF-", **params})["total"], expected)
+                                 ({"product_id": "RPF-001"}, 1)):
+            self.assertEqual(self.assert_parity({"product_id": "RPF-", **params})["total"], expected)
         times = sorted(row["finished_at"] for row in demo["items"])
-        self.assertEqual(self.query(product_id="DEMO-RPF-", from_at=times[0], to_at=times[10])["total"], 10)
-        self.assertEqual(len(self.query(product_id="DEMO-RPF-", limit=25)["items"]), 25)
-        self.assertEqual(self.assert_parity({"product_id": "DEMO-RPF-"})["total"], 30)
+        self.assertEqual(self.query(product_id="RPF-", from_at=times[0], to_at=times[10])["total"], 10)
+        self.assertEqual(len(self.query(product_id="RPF-", limit=25)["items"]), 25)
+        self.assertEqual(self.assert_parity({"product_id": "RPF-"})["total"], 30)
         before = {row["product_id"]: row["product_group"] for row in demo["items"]}
         seed_demo(self.path, Path("server/config/rpf_rules.json"))
         self.assertEqual(before, {row["product_id"]: row["product_group"]
-                                 for row in self.query(product_id="DEMO-RPF-")["items"]})
+                                 for row in self.query(product_id="RPF-")["items"]})
 
     def test_csv_without_limit_is_not_capped_at_default_json_page(self):
         for index in range(60):

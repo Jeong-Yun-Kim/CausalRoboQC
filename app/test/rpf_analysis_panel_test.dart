@@ -58,7 +58,7 @@ void main() {
     expect(find.text('30%'), findsOneWidget);
     expect(find.text('40%'), findsOneWidget);
     expect(find.text('데이터 부족'), findsOneWidget);
-    expect(find.text('※ 합성 데이터 기반 시험 모델'), findsOneWidget);
+    expect(find.text('※ 합성 데이터 기반 시험 모델'), findsNothing);
     expect(find.byIcon(Icons.info_outline), findsNWidgets(3));
     await tester.pump(const Duration(seconds: 20));
     expect(source.calls, 1);

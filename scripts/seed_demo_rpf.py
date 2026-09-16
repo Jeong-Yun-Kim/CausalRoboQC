@@ -24,7 +24,7 @@ from server.app.rpf import RpfRules
 SOURCE = "scripts/seed_demo_rpf.py"
 MARKER = "causalroboqc:seed_demo_rpf:v1"
 OWNER_EVENT = "DEMO_RPF_SEEDED"
-PRODUCT_IDS = [f"DEMO-RPF-{index:03d}" for index in range(1, 31)]
+PRODUCT_IDS = [f"RPF-{index:03d}" for index in range(1, 31)]
 STAGES = ("HOME", "PICK_ABOVE", "PICK", "GRAB", "LIFT", "PLACE", "RELEASE", "HOME")
 BASE_MS = (800, 1100, 900, 550, 1000, 1500, 450, 800)
 
@@ -102,11 +102,11 @@ def seed_demo(database_path: Path, rules_path: Path, seed: int = 42) -> dict:
             owned_ids = {row["id"] for row in owned}
             placeholders = ",".join("?" for _ in PRODUCT_IDS)
             collisions = connection.execute(
-                f"SELECT id,product_id FROM rpf_records WHERE product_id IN ({placeholders})",
+                f"SELECT id,product_id FROM rpf_records WHERE product_id COLLATE NOCASE IN ({placeholders})",
                 PRODUCT_IDS,
             ).fetchall()
             if any(row["id"] not in owned_ids for row in collisions):
-                raise ValueError("An existing non-demo record uses a DEMO-RPF ID; nothing was replaced")
+                raise ValueError("An existing non-seed record uses an RPF ID; nothing was replaced")
             for rpf_id in owned_ids:
                 connection.execute("DELETE FROM analysis_results WHERE rpf_id=?", (rpf_id,))
                 connection.execute("DELETE FROM events WHERE rpf_id=?", (rpf_id,))

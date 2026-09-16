@@ -23,6 +23,10 @@ import uvicorn
 
 from ai.app.main import app as laptop
 from scripts.seed_demo_rpf import seed_demo
+from scripts.prepare_rpf_presentation import analyze_seed
+from server.app.analysis_client import AnalysisClient
+from server.app.database import Database
+import httpx
 from server.app.main import app as pi
 
 
@@ -53,10 +57,23 @@ async def serve():
     await asyncio.gather(*(server.serve() for server in servers))
 
 
+async def prepare(path):
+    # Exercise the actual saved IF/RF/AE artifacts even though Ollama is a fixture.
+    async with laptop.router.lifespan_context(laptop):
+        client = AnalysisClient("http://laptop", transport=httpx.ASGITransport(app=laptop))
+        database = Database(path)
+        try:
+            await analyze_seed(database, client)
+        finally:
+            await client.close()
+            database.close()
+
+
 if __name__ == "__main__":
     with tempfile.TemporaryDirectory(prefix="copilot-browser-") as temp, ExitStack() as stack:
         path = Path(temp) / "demo.db"
         seed_demo(path, Path("server/config/rpf_rules.json"))
+        asyncio.run(prepare(path))
         stack.enter_context(patch.dict(os.environ, {
             "DATABASE_PATH": str(path), "ANALYSIS_BASE_URL": "http://127.0.0.1:19000",
             "OLLAMA_MODEL": "browser-test-fixture", "OLLAMA_BASE_URL": "http://127.0.0.1:11435",

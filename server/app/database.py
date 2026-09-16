@@ -1,6 +1,7 @@
 import json
 import sqlite3
 import threading
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -293,13 +294,17 @@ class Database:
             ).fetchone()
             return self._rpf(row)
 
-    def list_rpfs(self, limit: int, offset: int) -> list[dict[str, Any]]:
+    def list_rpfs(self, limit: int, offset: int, *, include_analysis: bool = False) -> list[dict[str, Any]]:
         with self.lock:
             rows = self.connection.execute(
                 "SELECT * FROM rpf_records ORDER BY id DESC LIMIT ? OFFSET ?",
                 (limit, offset),
             ).fetchall()
-            return [self._rpf(row) for row in rows]
+            records = [self._rpf(row) for row in rows]
+            if include_analysis:
+                for record in records:
+                    record["analysis_result"] = self.get_analysis_result(record["id"])
+            return records
 
     def browse_rpfs(
         self, *, from_at: str | None = None, to_at: str | None = None,
@@ -365,9 +370,16 @@ class Database:
             return result
 
     def save_analysis_result(self, result: dict[str, Any]) -> dict[str, Any]:
-        encoded_info = json.dumps(result["model_info"], ensure_ascii=False, allow_nan=False)
-        with self.lock:
-            self.connection.execute(
+        self.save_analysis_results([result])
+        return self.get_analysis_result(result["rpf_id"])
+
+    def save_analysis_results(self, results: list[dict], *, commit: bool = True) -> None:
+        values = [(result["rpf_id"], result["anomaly_score"], result["inspection_risk_score"],
+                   result["timeseries_anomaly_score"], int(result["synthetic_model"]),
+                   json.dumps(result["model_info"], ensure_ascii=False, allow_nan=False), utc_now())
+                  for result in results]
+        with self.lock, (self.connection if commit else nullcontext()):
+            self.connection.executemany(
                 """
                 INSERT INTO analysis_results (
                     rpf_id, anomaly_score, inspection_risk_score, timeseries_anomaly_score,
@@ -381,11 +393,8 @@ class Database:
                     model_info=excluded.model_info,
                     analyzed_at=excluded.analyzed_at
                 """,
-                (result["rpf_id"], result["anomaly_score"], result["inspection_risk_score"],
-                 result["timeseries_anomaly_score"], int(result["synthetic_model"]), encoded_info, utc_now()),
+                values,
             )
-            self.connection.commit()
-            return self.get_analysis_result(result["rpf_id"])
 
     def list_running_rpfs(self) -> list[dict[str, Any]]:
         with self.lock:

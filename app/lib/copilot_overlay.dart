@@ -218,7 +218,10 @@ class _CopilotOverlayState extends State<CopilotOverlay> {
         Wrap(spacing: 4, runSpacing: 4, children: [
           for (final example in const [
             ('최근 우선검사 제품', '최근 우선검사 제품 알려줘'),
-            ('제품 비교', 'DEMO-RPF-001과 DEMO-RPF-002 비교해줘'),
+            ('판정 사유', 'RPF-014가 왜 확인 필요야?'),
+            ('제품 비교', 'RPF-001과 RPF-002 비교해줘'),
+            ('점검 순서', 'RPF-014 점검 순서 알려줘'),
+            ('보고서 초안', 'RPF-014 품질보고서 초안 작성해줘'),
             ('공정 이상 추세', '최근 20개 제품 공정 이상도 그래프로 보여줘'),
             ('사용 방법', '데이터 조회는 어떻게 사용해?'),
           ])
@@ -283,10 +286,6 @@ class _CopilotOverlayState extends State<CopilotOverlay> {
                 ],
               ),
             ),
-          ],
-          if (response.demoData) ...[
-            const SizedBox(height: 10),
-            Text('데모 데이터 기반', style: Theme.of(context).textTheme.labelSmall),
           ],
         ],
       ]),

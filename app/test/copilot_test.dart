@@ -72,8 +72,8 @@ void main() {
       expect(
           tester
               .getSemantics(find.byKey(const ValueKey('copilot-input')))
-          .rect
-          .height,
+              .rect
+              .height,
           lessThan(150));
       semantics.dispose();
       expect(
@@ -83,7 +83,7 @@ void main() {
           findsNothing);
       await ask(tester, '제품 설명');
       expect(find.text('저장된 제품의 설명입니다.'), findsOneWidget);
-      expect(find.text('데모 데이터 기반'), findsOneWidget);
+      expect(find.text('데모 데이터 기반'), findsNothing);
       await tester.tap(find.byTooltip('코파일럿 닫기'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('copilot-panel')), findsNothing);

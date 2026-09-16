@@ -9,6 +9,7 @@ import re
 
 from .analysis_client import pose_sequence
 from .database import Database
+from .rpf_presentation import presentation
 
 
 NO_DATA = "현재 데이터에서 확인할 수 없습니다."
@@ -116,7 +117,8 @@ def route(question: str, now: datetime | None = None) -> Intent:
         if len(intent.product_ids) < 2 and len(intent.groups) < 2:
             intent.clarification = "비교할 제품 ID 두 개 또는 제품군 두 개를 입력해주세요."
     elif intent.product_ids:
-        intent.name = "PRODUCT_DETAIL"
+        intent.name = ("PRODUCT_REPORT" if "보고서" in q else
+                       "PRODUCT_CHECKS" if re.search(r"점검|조치|확인 순서", q) else "PRODUCT_DETAIL")
     elif "등급" in q and re.search(r"추세|추이", q):
         intent.name, intent.grade_trend = "METRIC_TREND", True
     elif "등급별" in q or "등급 분포" in q:
@@ -241,9 +243,9 @@ class CopilotQueries:
         return any(row[0] in ids for row in demo_ids)
 
     def product_table(self, rows: list[dict]) -> dict:
-        return {"columns": ["제품 ID", "제품군", "등급", "작업시간 (s)", "공정 이상도", "검사 위험도", "주요 근거"],
+        return {"columns": ["제품 ID", "제품군", "등급", "작업시간 (s)", "공정 이상도", "검사 위험도", "공정 단계 시간 이상도", "주요 근거"],
                 "rows": [[row["product_id"], row["product_group"], GRADES.get(row["grade"], "미분류"),
-                          metric_value(row, "work_time_ms"), row["anomaly_score"], row["inspection_risk_score"],
+                          metric_value(row, "work_time_ms"), row["anomaly_score"], row["inspection_risk_score"], row["timeseries_anomaly_score"],
                           ", ".join(self.db.get_rpf(row["id"])["grade_reasons"]) or "기록된 근거 없음"] for row in rows]}
 
     def prepare(self, question: str, now: datetime | None = None) -> dict:
@@ -299,7 +301,7 @@ class CopilotQueries:
             fact("조회 범위: " + "; ".join(scope) + ".", True)
         elif not intent.product_ids:
             fact("전체 저장 데이터 기준입니다.", True)
-        if intent.name in {"PRODUCT_DETAIL", "PRODUCT_COMPARE"} and intent.product_ids:
+        if intent.name in {"PRODUCT_DETAIL", "PRODUCT_COMPARE", "PRODUCT_REPORT", "PRODUCT_CHECKS"} and intent.product_ids:
             result["table"] = self.product_table(rows)
             for row in rows:
                 record = self.db.get_rpf(row["id"])
@@ -317,17 +319,29 @@ class CopilotQueries:
                     fact(f"{row['product_id']}의 단계별 소요시간: " + ", ".join(
                         f"{stage} {number(value / 1000)}s" for stage, value in durations.items()) + ".")
                 analysis = self.db.get_analysis_result(row["id"])
+                if intent.name in {"PRODUCT_REPORT", "PRODUCT_CHECKS"}:
+                    guidance = presentation(record, events, analysis)
+                    if intent.name == "PRODUCT_REPORT":
+                        fact(guidance["report_draft"], True)
+                    else:
+                        fact("권장 점검 순서:\n" + "\n".join(
+                            f"{i}. {check}" for i, check in enumerate(guidance["recommended_checks"], 1))
+                            + "\n기록에 따른 확인 항목이며 원인을 확정하지 않습니다.", True)
                 if analysis:
                     fact(f"{row['product_id']}: " + ", ".join(
                         f"{METRICS[key][0]} {number(analysis.get(key))}" for key in METRICS if key != "work_time_ms") + ".")
                     fact("저장된 점수만으로 개별 특징의 기여도나 인과 원인은 확인할 수 없습니다. 보조 분석 점수는 규칙 기반 등급을 변경하지 않습니다.", True)
-                    if analysis["synthetic_model"]:
-                        fact("저장된 보조 점수는 합성 데이터 기반 시험 모델의 결과입니다.", True)
             if len(rows) == 2:
                 for metric, (label, unit, _) in METRICS.items():
                     a, b = (metric_value(row, metric) for row in rows)
                     if a is not None and b is not None:
                         fact(f"{rows[0]['product_id']}에서 {rows[1]['product_id']}을 뺀 {label} 차이는 {number(a - b)}{unit}입니다.")
+            if intent.chart:
+                label, unit, _ = METRICS[intent.metric]
+                result["chart"] = {"type": "bar", "title": f"제품별 {label}",
+                                   "labels": [row["product_id"] for row in rows],
+                                   "series": [{"name": label, "values": [metric_value(row, intent.metric) for row in rows]}],
+                                   "unit": unit}
         elif intent.name == "PERIOD_SUMMARY":
             for text in self.summarize_period(rows):
                 fact(text)
