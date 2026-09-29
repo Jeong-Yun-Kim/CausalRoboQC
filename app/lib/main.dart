@@ -14,6 +14,7 @@ import 'quality_dashboard_data.dart';
 import 'metric_help.dart';
 import 'copilot_overlay.dart';
 import 'rpf_analysis_overview.dart';
+import 'camera_preview.dart';
 
 const _configuredApiBase = String.fromEnvironment(
   'API_BASE_URL',
@@ -982,6 +983,8 @@ class _DashboardPageState extends State<DashboardPage> {
               _buildConnectionBanner(),
               const SizedBox(height: DashboardTheme.sectionSpacing),
               _buildSafety(),
+              const SizedBox(height: DashboardTheme.sectionSpacing),
+              const CameraPreview(),
               const SizedBox(height: DashboardTheme.sectionSpacing),
               if (wide)
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
