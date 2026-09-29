@@ -40,6 +40,7 @@ final class ApiQualityDashboardDataSource
     final detail = await _analysisRequest(rpfId);
     final result = detail['analysis_result'];
     final presentation = detail['presentation'] as Map?;
+    final causes = presentation?['cause_analysis'] as Map?;
     return RpfAnalysisSnapshot(
       result: result == null
           ? null
@@ -55,6 +56,14 @@ final class ApiQualityDashboardDataSource
       recommendedChecks:
           (presentation?['recommended_checks'] as List? ?? []).cast<String>(),
       reportDraft: presentation?['report_draft'] as String?,
+      causeCandidates: (causes?['top_candidates'] as List? ?? [])
+          .map((item) => BayesianCauseCandidate.fromJson(
+              Map<String, dynamic>.from(item as Map)))
+          .toList(),
+      causeMeaning: causes?['probability_meaning'] as String?,
+      causeNote: causes?['note'] as String?,
+      causeEvidence: causes?['evidence_note'] as String?,
+      otherCauseProbability: (causes?['other_probability'] as num?)?.toDouble(),
     );
   }
 

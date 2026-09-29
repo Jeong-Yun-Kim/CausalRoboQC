@@ -13,6 +13,7 @@ from .database import Database
 from .data_browser import router as data_browser_router
 from .copilot import router as copilot_router
 from .rpf_presentation import presentation
+from .presentation_mode import presentation_guard, prepare_presentation
 from .service import RobotError, RobotService, WebSocketHub
 
 
@@ -37,22 +38,26 @@ class RunReviewBody(BaseModel):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = load_settings()
-    database = Database(settings.database_path)
-    hub = WebSocketHub()
     analysis_client = AnalysisClient(settings.analysis_base_url, settings.analysis_timeout_seconds)
-    app.state.analysis_client = analysis_client
-    analysis = RpfAnalysisService(database, analysis_client)
-    service = RobotService(settings, database, hub, analysis)
-    app.state.service = service
-    await service.start()
     try:
-        yield
+        with presentation_guard(settings):
+            if settings.presentation_mode:
+                await prepare_presentation(settings, analysis_client)
+            database = Database(settings.database_path)
+            app.state.analysis_client = analysis_client
+            analysis = RpfAnalysisService(database, analysis_client)
+            service = RobotService(settings, database, WebSocketHub(), analysis)
+            app.state.service = service
+            try:
+                await service.start()
+                yield
+            finally:
+                await service.shutdown()
+                await service.serial.stop()
+                await analysis.shutdown()
+                database.close()
     finally:
-        await service.shutdown()
-        await service.serial.stop()
-        await analysis.shutdown()
         await analysis_client.close()
-        database.close()
 
 
 app = FastAPI(title="CausalRoboQC Robot Arm API", version="0.1.0", lifespan=lifespan)

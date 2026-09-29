@@ -33,12 +33,19 @@ class Settings:
     rpf_rules_path: Path
     analysis_base_url: str = "http://127.0.0.1:9000"
     analysis_timeout_seconds: float = 3.0
+    presentation_mode: bool = False
 
 
 def load_settings() -> Settings:
     server_dir = Path(__file__).resolve().parents[1]
     repo_dir = server_dir.parent
     analysis_timeout = _float_env("ANALYSIS_TIMEOUT_SECONDS", 3.0)
+    presentation_mode = os.getenv("PRESENTATION_MODE", "false").lower() in {"true", "1", "yes"}
+    user_database = Path(os.getenv("DATABASE_PATH", str(server_dir / "data" / "robot_arm.db"))).expanduser()
+    database = (Path(os.getenv("PRESENTATION_DATABASE_PATH", str(server_dir / "data" / "presentation.db"))).expanduser()
+                if presentation_mode else user_database)
+    if presentation_mode and database.resolve() in {user_database.resolve(), (server_dir / "data" / "robot_arm.db").resolve()}:
+        raise ValueError("Presentation database must be separate from the user database")
     return Settings(
         serial_port=os.getenv("SERIAL_PORT", "/dev/ttyACM0"),
         baud_rate=int(os.getenv("SERIAL_BAUD_RATE", "115200")),
@@ -47,9 +54,7 @@ def load_settings() -> Settings:
         move_timeout_seconds=_float_env("MOVE_TIMEOUT_SECONDS", 20.0),
         pose_pause_seconds=_float_env("POSE_PAUSE_SECONDS", 0.35),
         repeat_unlock_samples=_positive_int_env("REPEAT_UNLOCK_SAMPLES", 5),
-        database_path=Path(
-            os.getenv("DATABASE_PATH", str(server_dir / "data" / "robot_arm.db"))
-        ).expanduser(),
+        database_path=database,
         poses_path=Path(
             os.getenv("POSES_PATH", str(repo_dir / "robot_arm" / "poses.json"))
         ).expanduser(),
@@ -60,4 +65,5 @@ def load_settings() -> Settings:
         analysis_timeout_seconds=(
             analysis_timeout if math.isfinite(analysis_timeout) and analysis_timeout > 0 else 3.0
         ),
+        presentation_mode=presentation_mode,
     )

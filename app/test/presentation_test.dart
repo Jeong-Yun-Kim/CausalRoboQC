@@ -34,6 +34,17 @@ Map<String, Object?> record(int index) => {
         ],
         'recommended_checks': ['그리퍼 파지 위치를 확인하세요.'],
         'report_draft': '품질보고서 초안 · RPF-001\n공정 이상도: 0.125',
+        'cause_analysis': {
+          'top_candidates': [
+            {'cause': '그리퍼 파지/정렬 이상', 'probability': .58},
+            {'cause': '제품 초기 위치 이상', 'probability': .27},
+            {'cause': '통신/제어 지연', 'probability': .10},
+          ],
+          'other_probability': .05,
+          'probability_meaning': '현재 정의한 FMEA/Bayesian 모델 기준 원인 후보 확률',
+          'note': '실제 불량 확률이나 원인 확정값이 아닙니다.',
+          'evidence_note': '관측 근거: 집기 재시도',
+        },
       },
     };
 
@@ -71,6 +82,8 @@ void main() {
       expect(detail.stages.single.detail, '0.950초');
       expect(detail.recommendedChecks.single, contains('그리퍼'));
       expect(detail.reportDraft, contains('공정 이상도: 0.125'));
+      expect(detail.causeCandidates.first.probability, .58);
+      expect(detail.otherCauseProbability, .05);
     }, () => client);
   });
 
@@ -110,31 +123,41 @@ void main() {
     });
   }
 
-  testWidgets(
-      'detail shows saved scores, stages, checks and report without provenance badges',
-      (tester) async {
-    final client = connection();
-    addTearDown(client.close);
-    await http.runWithClient(() async {
-      const source = ApiQualityDashboardDataSource();
-      final data = await source.load();
-      await tester.pumpWidget(MaterialApp(
-          home: Scaffold(
-              body: SingleChildScrollView(
-                  child: RpfAnalysisPanel(
-                      product: data.products.last, source: source)))));
-      await tester.pumpAndSettle();
-      expect(find.text('38%'), findsOneWidget);
-      expect(find.text('PICK'), findsOneWidget);
-      expect(find.text('0.950초'), findsOneWidget);
-      expect(find.textContaining('그리퍼 파지'), findsOneWidget);
-      await tester.ensureVisible(find.text('품질보고서 초안'));
-      await tester.tap(find.text('품질보고서 초안'));
-      await tester.pumpAndSettle();
-      expect(find.byType(SelectableText), findsOneWidget);
-      expect(find.text('보고서 복사'), findsOneWidget);
-      assertNoPresentationLabels(tester);
-      expect(tester.takeException(), isNull);
-    }, () => client);
-  });
+  for (final width in [1440.0, 390.0]) {
+    testWidgets(
+        'detail shows scores, stages, checks, report and causes at $width',
+        (tester) async {
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final client = connection();
+      addTearDown(client.close);
+      await http.runWithClient(() async {
+        const source = ApiQualityDashboardDataSource();
+        final data = await source.load();
+        await tester.pumpWidget(MaterialApp(
+            home: Scaffold(
+                body: SingleChildScrollView(
+                    child: RpfAnalysisPanel(
+                        product: data.products.last, source: source)))));
+        await tester.pumpAndSettle();
+        expect(find.text('38%'), findsOneWidget);
+        expect(find.text('PICK'), findsOneWidget);
+        expect(find.text('0.950초'), findsOneWidget);
+        expect(find.text('1. 그리퍼 파지 위치를 확인하세요.'), findsOneWidget);
+        await tester.ensureVisible(find.text('품질보고서 초안'));
+        await tester.tap(find.text('품질보고서 초안'));
+        await tester.pumpAndSettle();
+        expect(find.byType(SelectableText), findsOneWidget);
+        expect(find.text('보고서 복사'), findsOneWidget);
+        await tester.ensureVisible(find.text('원인 후보'));
+        expect(find.text('1. 그리퍼 파지/정렬 이상'), findsOneWidget);
+        expect(find.text('58.0%'), findsOneWidget);
+        expect(find.text('나머지 후보 5.0%'), findsOneWidget);
+        expect(find.textContaining('FMEA/Bayesian'), findsOneWidget);
+        assertNoPresentationLabels(tester);
+        expect(tester.takeException(), isNull);
+      }, () => client);
+    });
+  }
 }

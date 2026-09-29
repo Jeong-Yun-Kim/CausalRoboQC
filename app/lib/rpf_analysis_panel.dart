@@ -158,6 +158,39 @@ class _RpfAnalysisPanelState extends State<RpfAnalysisPanel> {
             ],
           ),
         ],
+        if (_snapshot?.causeCandidates.isNotEmpty == true) ...[
+          const Divider(height: 32),
+          Text('원인 후보', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          for (var i = 0; i < _snapshot!.causeCandidates.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(children: [
+                Expanded(
+                    child: Text(
+                        '${i + 1}. ${_snapshot!.causeCandidates[i].cause}')),
+                const SizedBox(width: 8),
+                Text(
+                    '${(_snapshot!.causeCandidates[i].probability * 100).toStringAsFixed(1)}%',
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          if (_snapshot!.otherCauseProbability != null)
+            Text(
+                '나머지 후보 ${(_snapshot!.otherCauseProbability! * 100).toStringAsFixed(1)}%',
+                style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 8),
+          for (final text in [
+            _snapshot!.causeMeaning,
+            _snapshot!.causeNote,
+            _snapshot!.causeEvidence
+          ])
+            if (text != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(text, style: Theme.of(context).textTheme.bodySmall),
+              ),
+        ],
       ],
     );
   }

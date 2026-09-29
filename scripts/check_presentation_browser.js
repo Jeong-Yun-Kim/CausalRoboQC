@@ -58,6 +58,15 @@ async (page) => {
   await page.mouse.move(900, 650);
   await page.mouse.wheel(0, 750);
   await page.waitForTimeout(250);
+  const causes = await scan('FMEA Bayesian candidates');
+  if (!causes.includes('현재 정의한 FMEA/Bayesian 모델 기준 원인 후보 확률')) {
+    throw Error('Cause probability meaning missing');
+  }
+  for (const item of detail.presentation.cause_analysis.top_candidates) {
+    if (!causes.includes(item.cause) || !causes.includes(`${(item.probability * 100).toFixed(1)}%`)) {
+      throw Error(`Cause probability mismatch: ${item.cause}`);
+    }
+  }
   await page.screenshot({path: '/tmp/causalroboqc-product-detail.png'});
   await click(page.getByRole('button', {name: '닫기', exact: true}));
   await click(page.getByRole('button', {name: '데이터 조회', exact: true}));

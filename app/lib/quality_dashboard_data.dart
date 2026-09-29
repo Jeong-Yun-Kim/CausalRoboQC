@@ -171,19 +171,50 @@ final class RpfAnalysisResult {
   final bool syntheticModel;
 }
 
+final class BayesianCauseCandidate {
+  const BayesianCauseCandidate(
+      {required this.cause, required this.probability});
+
+  factory BayesianCauseCandidate.fromJson(Map<String, dynamic> json) {
+    final value = json['probability'];
+    if (json['cause'] is! String ||
+        value is! num ||
+        !value.isFinite ||
+        value < 0 ||
+        value > 1) {
+      throw const FormatException('원인 후보 형식이 올바르지 않습니다.');
+    }
+    return BayesianCauseCandidate(
+        cause: json['cause'] as String, probability: value.toDouble());
+  }
+
+  final String cause;
+  final double probability;
+}
+
 final class RpfAnalysisSnapshot {
   const RpfAnalysisSnapshot(
       {this.result,
       this.isPending = false,
       this.stages = const [],
       this.recommendedChecks = const [],
-      this.reportDraft});
+      this.reportDraft,
+      this.causeCandidates = const [],
+      this.causeMeaning,
+      this.causeNote,
+      this.causeEvidence,
+      this.otherCauseProbability});
 
   final RpfAnalysisResult? result;
   final bool isPending;
   final List<RpfStep> stages;
   final List<String> recommendedChecks;
   final String? reportDraft;
+  final List<BayesianCauseCandidate> causeCandidates;
+  final String? causeMeaning;
+  final String? causeNote;
+  final String? causeEvidence;
+  final double? otherCauseProbability;
 }
 
 abstract interface class RpfAnalysisDataSource {

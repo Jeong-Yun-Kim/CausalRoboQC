@@ -1,0 +1,53 @@
+{
+  "version": "fmea-bn-v1",
+  "provenance": "Explicit presentation assumptions, not learned or calibrated on real failures.",
+  "structure": "One categorical dominant-cause hypothesis -> conditionally independent binary observations. Six hypotheses are mutually exclusive within this model, not in the physical process.",
+  "probability_meaning": "현재 정의한 FMEA/Bayesian 모델 기준 원인 후보 확률",
+  "evidence": {
+    "PickRetry": {"label": "집기 재시도", "count": "retry_count", "events": ["PICK_RETRY_INJECTED", "PICK_RETRY"]},
+    "PickFailure": {"label": "집기 실패", "events": ["PICK_FAILED", "PICK_FAILURE", "PICK_TIMEOUT"]},
+    "PlaceFailure": {"label": "배치 실패", "events": ["PLACE_FAILURE_INJECTED", "PLACE_FAILED", "PLACE_FAILURE", "PLACE_TIMEOUT"]},
+    "WorkTimeOverrun": {"label": "작업시간 초과", "events": ["WORK_TIME_OVERRUN_INJECTED", "WORK_TIME_EXCEEDED", "WORK_TIME_OVERRUN"]},
+    "OperatorIntervention": {"label": "작업자 개입", "count": "operator_interventions", "events": ["OPERATOR_INTERVENTION"]},
+    "IDMismatch": {"label": "제품 식별 불일치", "events": ["PRODUCT_ID_MISMATCH", "ID_MISMATCH"]},
+    "UnclassifiedError": {"label": "분류되지 않은 오류", "count": "error_count", "exclude_classified": true, "events": []}
+  },
+  "causes": [
+    {
+      "id": "InitialPositionError", "cause": "제품 초기 위치 이상", "prior": 0.22,
+      "failure_mode": "집기 시작 위치 불일치", "effect": "집기 재시도 또는 실패",
+      "check": "제품 초기 투입 위치와 PICK 단계의 목표 위치를 확인하세요.",
+      "cpt_true": {"PickRetry": 0.72, "PickFailure": 0.55, "PlaceFailure": 0.08, "WorkTimeOverrun": 0.12, "OperatorIntervention": 0.10, "IDMismatch": 0.02, "UnclassifiedError": 0.10}
+    },
+    {
+      "id": "GripperProblem", "cause": "그리퍼 파지/정렬 이상", "prior": 0.28,
+      "failure_mode": "파지 불안정 또는 정렬 불일치", "effect": "집기 재시도 또는 이송 실패",
+      "check": "그리퍼 파지 위치·각도와 GRAB 단계의 동작을 확인하세요.",
+      "cpt_true": {"PickRetry": 0.85, "PickFailure": 0.65, "PlaceFailure": 0.18, "WorkTimeOverrun": 0.12, "OperatorIntervention": 0.10, "IDMismatch": 0.02, "UnclassifiedError": 0.12}
+    },
+    {
+      "id": "PlaceAlignmentError", "cause": "배치 위치 이상", "prior": 0.16,
+      "failure_mode": "배치 목표 위치 불일치", "effect": "배치 실패",
+      "check": "PLACE 목표 위치와 RELEASE 전후 제품 배치 상태를 확인하세요.",
+      "cpt_true": {"PickRetry": 0.08, "PickFailure": 0.04, "PlaceFailure": 0.85, "WorkTimeOverrun": 0.12, "OperatorIntervention": 0.10, "IDMismatch": 0.02, "UnclassifiedError": 0.10}
+    },
+    {
+      "id": "CommunicationDelay", "cause": "통신/제어 지연", "prior": 0.16,
+      "failure_mode": "명령 또는 응답 지연", "effect": "작업시간 초과",
+      "check": "명령 응답 시각, 시리얼 연결 상태와 지연된 공정 단계를 확인하세요.",
+      "cpt_true": {"PickRetry": 0.12, "PickFailure": 0.08, "PlaceFailure": 0.10, "WorkTimeOverrun": 0.85, "OperatorIntervention": 0.10, "IDMismatch": 0.02, "UnclassifiedError": 0.55}
+    },
+    {
+      "id": "OperatorAction", "cause": "작업자 개입", "prior": 0.10,
+      "failure_mode": "작업 중 수동 보정", "effect": "공정 흐름 변경",
+      "check": "작업자 개입 시점의 설정 변경과 조치 기록을 확인하세요. 개입이 원인의 결과일 가능성도 확인하세요.",
+      "cpt_true": {"PickRetry": 0.12, "PickFailure": 0.06, "PlaceFailure": 0.12, "WorkTimeOverrun": 0.20, "OperatorIntervention": 0.90, "IDMismatch": 0.02, "UnclassifiedError": 0.12}
+    },
+    {
+      "id": "IdentificationProblem", "cause": "제품 식별 이상", "prior": 0.08,
+      "failure_mode": "기록된 제품 ID 불일치", "effect": "제품 이력 연결 불일치",
+      "check": "기록된 제품 ID와 해당 작업의 ID 연결 상태를 확인하세요.",
+      "cpt_true": {"PickRetry": 0.08, "PickFailure": 0.04, "PlaceFailure": 0.06, "WorkTimeOverrun": 0.08, "OperatorIntervention": 0.10, "IDMismatch": 0.95, "UnclassifiedError": 0.10}
+    }
+  ]
+}

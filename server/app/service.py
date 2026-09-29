@@ -701,17 +701,20 @@ class RobotService:
         cycle = 0
         try:
             while True:
-                rpf = self.rpf.start_cycle(run_id, cycle)
-                self.active_rpf_id = int(rpf["id"])
-                self.active_rpf_started = monotonic()
+                rpf = None
+                if not self.settings.presentation_mode:
+                    rpf = self.rpf.start_cycle(run_id, cycle)
+                    self.active_rpf_id = int(rpf["id"])
+                    self.active_rpf_started = monotonic()
                 try:
-                    await self._add_event(
-                        "F",
-                        "RPF_STARTED",
-                        {"cycle": cycle, "product_id": rpf["product_id"]},
-                        run_id=run_id,
-                        rpf_id=self.active_rpf_id,
-                    )
+                    if rpf is not None:
+                        await self._add_event(
+                            "F",
+                            "RPF_STARTED",
+                            {"cycle": cycle, "product_id": rpf["product_id"]},
+                            run_id=run_id,
+                            rpf_id=self.active_rpf_id,
+                        )
                     for step_index, name in enumerate(sequence):
                         pose = poses[name]
                         if pose is None:
@@ -787,6 +790,8 @@ class RobotService:
             await self._finish_run(run_id, "failed", str(exc), "RUN_FAILED")
 
     async def _finish_active_rpf(self, status: str) -> dict[str, Any] | None:
+        if self.settings.presentation_mode:
+            return None
         rpf_id = self.active_rpf_id
         if rpf_id is None:
             return None

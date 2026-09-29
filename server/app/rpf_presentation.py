@@ -1,6 +1,7 @@
 """Read-only operator guidance derived from recorded evidence, never a diagnosis."""
 
 from .analysis_client import pose_sequence
+from .fmea_bayesian import cause_candidates
 
 
 GRADES = {"normal": "정상", "review": "확인 필요", "priority": "우선검사"}
@@ -40,4 +41,5 @@ def presentation(record: dict, events: list[dict], analysis: dict | None) -> dic
     lines.extend(["권장 점검 순서:", *[f"{index}. {check}" for index, check in enumerate(checks, 1)],
                   "보조 점수는 규칙 기반 등급을 변경하지 않으며 실제 검사 PASS/FAIL을 뜻하지 않습니다.",
                   "점검 안내는 기록에 따른 확인 항목입니다. 원인 확정이나 검사 판정은 포함하지 않습니다."])
-    return {"stages": stages, "recommended_checks": checks, "report_draft": "\n".join(lines)}
+    return {"stages": stages, "recommended_checks": checks, "report_draft": "\n".join(lines),
+            "cause_analysis": cause_candidates(record, events)}

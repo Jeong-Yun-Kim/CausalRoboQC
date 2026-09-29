@@ -32,6 +32,8 @@ htmlcov/
 *.sqlite
 *.sqlite3
 *.log
+server/data/*.lock
+server/data/presentation-runtime/
 
 # PlatformIO
 .pio/
@@ -44,5 +46,6 @@ htmlcov/
 build/
 
 # Miscellaneous temporary files
+.playwright-mcp/
 *.tmp
 *.temp

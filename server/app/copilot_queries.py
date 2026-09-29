@@ -10,6 +10,7 @@ import re
 from .analysis_client import pose_sequence
 from .database import Database
 from .rpf_presentation import presentation
+from .fmea_bayesian import cause_candidates
 
 
 NO_DATA = "현재 데이터에서 확인할 수 없습니다."
@@ -112,6 +113,10 @@ def route(question: str, now: datetime | None = None) -> Intent:
                         "robot_control" if "반복" in q or "로봇" in q or "실행" in q else
                         "dashboard" if "대시보드" in q else
                         "quality" if "품질관리" in q else "terminology")
+    elif re.search(r"원인\s*후보|원인\s*확률", q):
+        intent.name = "CAUSE_CANDIDATES"
+        if not intent.product_ids and not intent.filters and not intent.abnormal:
+            intent.clarification = "제품 ID 또는 우선검사처럼 조회할 등급을 입력해주세요."
     elif len(intent.product_ids) > 1 or "비교" in q:
         intent.name = "PRODUCT_COMPARE"
         if len(intent.product_ids) < 2 and len(intent.groups) < 2:
@@ -150,7 +155,7 @@ def number(value) -> str:
 
 
 class CopilotQueries:
-    """No caller-supplied SQL, writes, inference, or rule re-evaluation."""
+    """Read-only queries and config-based BN enumeration; no LLM-generated values."""
 
     def __init__(self, database: Database):
         self.db = database
@@ -301,7 +306,23 @@ class CopilotQueries:
             fact("조회 범위: " + "; ".join(scope) + ".", True)
         elif not intent.product_ids:
             fact("전체 저장 데이터 기준입니다.", True)
-        if intent.name in {"PRODUCT_DETAIL", "PRODUCT_COMPARE", "PRODUCT_REPORT", "PRODUCT_CHECKS"} and intent.product_ids:
+        if intent.name == "CAUSE_CANDIDATES":
+            selected = rows[:intent.limit]
+            table_rows = []
+            for row in selected:
+                record = self.db.get_rpf(row["id"])
+                causes = cause_candidates(record, self.db.list_rpf_events(row["id"]))
+                top = causes["top_candidates"]
+                fact(f"{row['product_id']} 원인 후보: " + "; ".join(
+                    f"{item['cause']} {item['probability'] * 100:.1f}%" for item in top)
+                    + f"; 나머지 후보 {causes['other_probability'] * 100:.1f}%. "
+                    + causes["evidence_note"], True)
+                table_rows.extend([[row["product_id"], item["cause"], round(item["probability"] * 100, 1)]
+                                   for item in top])
+            result["table"] = {"columns": ["제품 ID", "원인 후보", "모델 기준 확률 (%)"], "rows": table_rows}
+            fact(causes["probability_meaning"] + "입니다. " + causes["note"], True)
+            fact(f"조회된 {len(rows)}건 중 최근 {len(selected)}건의 상위 3개 후보를 표시합니다. 나머지 후보를 포함한 전체 확률 합은 100%입니다.", True)
+        elif intent.name in {"PRODUCT_DETAIL", "PRODUCT_COMPARE", "PRODUCT_REPORT", "PRODUCT_CHECKS"} and intent.product_ids:
             result["table"] = self.product_table(rows)
             for row in rows:
                 record = self.db.get_rpf(row["id"])
@@ -324,6 +345,11 @@ class CopilotQueries:
                     if intent.name == "PRODUCT_REPORT":
                         fact(guidance["report_draft"], True)
                     else:
+                        causes = guidance["cause_analysis"]
+                        fact(causes["probability_meaning"] + "에 따른 점검 후보입니다. " + causes["note"]
+                             + "\n" + causes["evidence_note"] + "\n" + "\n".join(
+                                 f"{i}. {item['cause']} ({item['probability'] * 100:.1f}%): {item['check']}"
+                                 for i, item in enumerate(causes["top_candidates"], 1)), True)
                         fact("권장 점검 순서:\n" + "\n".join(
                             f"{i}. {check}" for i, check in enumerate(guidance["recommended_checks"], 1))
                             + "\n기록에 따른 확인 항목이며 원인을 확정하지 않습니다.", True)
