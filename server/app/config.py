@@ -34,6 +34,11 @@ class Settings:
     analysis_base_url: str = "http://127.0.0.1:9000"
     analysis_timeout_seconds: float = 3.0
     presentation_mode: bool = False
+    vision_enabled: bool = False
+    vision_required: bool = False
+    camera_device: str = "/dev/video0"
+    vision_config_path: Path = Path(__file__).resolve().parents[1] / "config" / "vision.json"
+    camera_preview_mode: str = "browser"
 
 
 def load_settings() -> Settings:
@@ -47,7 +52,7 @@ def load_settings() -> Settings:
     if presentation_mode and database.resolve() in {user_database.resolve(), (server_dir / "data" / "robot_arm.db").resolve()}:
         raise ValueError("Presentation database must be separate from the user database")
     return Settings(
-        serial_port=os.getenv("SERIAL_PORT", "/dev/ttyACM0"),
+        serial_port=os.getenv("SERIAL_DEVICE", os.getenv("SERIAL_PORT", "/dev/ttyACM0")),
         baud_rate=int(os.getenv("SERIAL_BAUD_RATE", "115200")),
         reconnect_seconds=_float_env("SERIAL_RECONNECT_SECONDS", 2.0),
         status_poll_seconds=_float_env("SERIAL_STATUS_POLL_SECONDS", 0.5),
@@ -66,4 +71,10 @@ def load_settings() -> Settings:
             analysis_timeout if math.isfinite(analysis_timeout) and analysis_timeout > 0 else 3.0
         ),
         presentation_mode=presentation_mode,
+        vision_enabled=os.getenv("VISION_ENABLED", "false").lower() in {"true", "1", "yes"},
+        vision_required=os.getenv("VISION_REQUIRED", "false").lower() in {"true", "1", "yes"},
+        camera_device=os.getenv("CAMERA_DEVICE", "/dev/video0"),
+        vision_config_path=Path(os.getenv("VISION_CONFIG_PATH", str(server_dir / "config" / "vision.json"))),
+        camera_preview_mode=(os.getenv("CAMERA_PREVIEW_MODE", "browser")
+                             if os.getenv("CAMERA_PREVIEW_MODE", "browser") in {"browser", "server", "off"} else "off"),
     )

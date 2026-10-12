@@ -13,6 +13,7 @@ from .config import Settings
 from .database import Database, utc_now
 from .rpf import RpfPipeline
 from .serial_link import SerialLink
+from .vision import VisionService
 
 
 NORMAL_POSE_NAMES = (
@@ -194,6 +195,11 @@ class RobotService:
         self._serial_was_ready = False
         self.rpf = RpfPipeline(database, settings.rpf_rules_path)
         self.serial = SerialLink(settings, self.handle_line, self.handle_serial_state)
+        self.vision = VisionService(settings, self._vision_event)
+        self._vision_done = asyncio.Event()
+        self._vision_marker = None
+        self._analysis_health_task = None
+        self.analysis_server_available = False
 
     async def start(self) -> None:
         interrupted_rpfs = self.database.list_running_rpfs()
@@ -201,6 +207,9 @@ class RobotService:
         for record in interrupted_rpfs:
             self.rpf.finish_cycle(int(record["id"]), "failed", None)
         await self.serial.start()
+        await self.vision.start()
+        if self.analysis is not None:
+            self._analysis_health_task = asyncio.create_task(self._analysis_health(), name="analysis-health")
 
     async def shutdown(self) -> None:
         run_id = self.active_run_id
@@ -231,6 +240,47 @@ class RobotService:
         if run_id is not None:
             await self._finish_run(run_id, "interrupted", "Server shutdown", "RUN_INTERRUPTED")
         self._fail_waiters(ConnectionError("Server is shutting down"))
+        await self.vision.stop()
+        if self._analysis_health_task:
+            self._analysis_health_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._analysis_health_task
+
+    async def _analysis_health(self):
+        while True:
+            try:
+                response = await self.analysis.client.client.get("/health")
+                self.analysis_server_available = response.is_success
+            except Exception:
+                self.analysis_server_available = False
+            await asyncio.sleep(10)
+
+    async def _vision_event(self, name, payload):
+        await self._add_event("V", name, payload)
+        if name in {"PLACE_VERIFIED", "PRODUCT_ID_MISMATCH", "PLACE_TIMEOUT"}:
+            self._vision_done.set()
+        await self._broadcast_status()
+
+    def _reserve_marker(self):
+        if self.settings.vision_required and not self.vision.ready:
+            raise RobotError(409, "카메라/비전이 준비되지 않아 실행할 수 없습니다.")
+        if not self.settings.vision_enabled or not self.vision.ready:
+            return None
+        try:
+            return self.vision.state.begin_cycle()
+        except ValueError as exc:
+            raise RobotError(409, "입력 ROI에서 제품 ID가 안정적으로 확인되어야 합니다.") from exc
+
+    async def _wait_for_place(self):
+        timeout = self.vision.state.config.place_timeout_seconds
+        remaining = max(0, timeout - (monotonic() - self.vision.state.release_at))
+        try:
+            await asyncio.wait_for(self._vision_done.wait(), remaining + .1)
+        except asyncio.TimeoutError:
+            for event in self.vision.state.tick(monotonic()):
+                await self._vision_event(event, {"marker_id": self._vision_marker, "source": "aruco"})
+        if self.vision.state.outcome != "PLACE_VERIFIED":
+            raise RobotError(409, self.vision.state.outcome or "PLACE_TIMEOUT")
 
     def run_response(
         self, run: dict[str, Any] | None
@@ -258,6 +308,9 @@ class RobotService:
         )
         return {
             "serial": self.serial.snapshot(),
+            "serial_connected": self.serial.snapshot().get("connected", False),
+            **self.vision.status(),
+            "analysis_server_available": self.analysis_server_available,
             "robot": robot,
             "active_run": self.run_response(self.database.get_run(self.active_run_id))
             if self.active_run_id is not None
@@ -625,6 +678,8 @@ class RobotService:
         ]
         if invalid:
             raise RobotError(409, "Poses outside current servo limits: " + ", ".join(invalid))
+        self._vision_marker = self._reserve_marker()
+        self._vision_done.clear()
         run = self.database.create_run(repeat, run_mode)
         run_id = int(run["id"])
         self.active_run_id = run_id
@@ -702,8 +757,15 @@ class RobotService:
         try:
             while True:
                 rpf = None
-                if not self.settings.presentation_mode:
-                    rpf = self.rpf.start_cycle(run_id, cycle)
+                if cycle > 0 and self.settings.vision_enabled:
+                    # Repeat waits with the arm idle until the next stable input marker.
+                    while not self.vision.ready or self.vision.state.active_marker_id is None:
+                        await asyncio.sleep(.1)
+                    self._vision_marker = self._reserve_marker()
+                    self._vision_done.clear()
+                if not self.settings.presentation_mode and (not self.settings.vision_enabled or self._vision_marker is not None):
+                    rpf = (self.rpf.start_cycle(run_id, cycle, marker_id=self._vision_marker)
+                           if self._vision_marker is not None else self.rpf.start_cycle(run_id, cycle))
                     self.active_rpf_id = int(rpf["id"])
                     self.active_rpf_started = monotonic()
                 try:
@@ -711,7 +773,7 @@ class RobotService:
                         await self._add_event(
                             "F",
                             "RPF_STARTED",
-                            {"cycle": cycle, "product_id": rpf["product_id"]},
+                            {"cycle": cycle, "product_id": rpf["product_id"], "marker_id": rpf.get("marker_id")},
                             run_id=run_id,
                             rpf_id=self.active_rpf_id,
                         )
@@ -743,6 +805,11 @@ class RobotService:
                                 run_id=run_id,
                             )
                         await self._move_pose(name, pose, run_id, step_index, cycle)
+                        if self._vision_marker is not None:
+                            self.vision.state.pose_finished(name, monotonic())
+                            if name == "RELEASE":
+                                await self._wait_for_place()
+                                await self._finish_active_rpf("completed")
                         await asyncio.sleep(self.settings.pose_pause_seconds)
                     if run_mode == "error":
                         await self._add_event(
@@ -770,6 +837,9 @@ class RobotService:
                     raise
                 else:
                     await self._finish_active_rpf("completed")
+                if self._vision_marker is not None:
+                    self.vision.state.end_cycle()
+                    self._vision_marker = None
                 cycle += 1
                 self.database.update_run(run_id, cycle_count=cycle, step_index=0)
                 if not repeat:
@@ -820,6 +890,9 @@ class RobotService:
     async def _finish_run(
         self, run_id: int, status: str, error: str | None, event_name: str
     ) -> dict[str, Any] | None:
+        if self._vision_marker is not None:
+            self.vision.state.end_cycle()
+            self._vision_marker = None
         current = self.database.get_run(run_id)
         if current is None or current["status"] not in {"running", "stopping"}:
             if self.active_run_id == run_id:

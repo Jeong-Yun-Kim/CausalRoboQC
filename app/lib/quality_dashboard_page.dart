@@ -7,6 +7,7 @@ import 'metric_help.dart';
 import 'quality_dashboard_api.dart';
 import 'quality_dashboard_data.dart';
 import 'rpf_analysis_panel.dart';
+import 'inspection_panel.dart';
 import 'rpf_analysis_overview.dart';
 
 class QualityDashboardPage extends StatefulWidget {
@@ -677,6 +678,17 @@ class _QualityDashboardPageState extends State<QualityDashboardPage> {
                             source: widget.dataSource is RpfAnalysisDataSource
                                 ? widget.dataSource as RpfAnalysisDataSource
                                 : null),
+                        if (product.rpfId != null &&
+                            widget.dataSource
+                                is ApiQualityDashboardDataSource) ...[
+                          const Divider(height: DashboardTheme.groupSpacing),
+                          InspectionPanel(
+                              rpfId: product.rpfId!,
+                              source: ApiInspectionSource(
+                                  apiBase: (widget.dataSource
+                                          as ApiQualityDashboardDataSource)
+                                      .apiBase)),
+                        ],
                         if (product.timeline.isNotEmpty) ...[
                           const Divider(height: DashboardTheme.groupSpacing),
                           Text('작업 이력',

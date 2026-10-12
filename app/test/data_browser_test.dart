@@ -30,6 +30,11 @@ class BrowserSource implements DataBrowserDataSource {
                   'grade': 'normal',
                   'finished_at': '2026-09-12T03:00:00Z',
                   'work_time_ms': 12500,
+                  'inspection_result': 'FAIL',
+                  'confirmed_causes': ['표면 손상'],
+                  'action': '재검사',
+                  'note': '현장 확인',
+                  'inspected_at': '2026-10-12T00:00:00Z',
                 }),
               ],
         total: filter.productId == 'empty' ? 0 : 30,
@@ -42,6 +47,17 @@ class BrowserSource implements DataBrowserDataSource {
 }
 
 void main() {
+  testWidgets('inspection fields appear alongside the independent rule grade',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(body: DataBrowserPage(dataSource: BrowserSource()))));
+    await tester.pumpAndSettle();
+    expect(find.text('FAIL'), findsOneWidget);
+    expect(find.text('표면 손상'), findsOneWidget);
+    expect(find.text('재검사'), findsOneWidget);
+    expect(find.text('현장 확인'), findsOneWidget);
+  });
+
   test('calendar dates become UTC bounds shared by the CSV URL', () {
     final filter = DataBrowserFilter(
         startDate: DateTime(2026, 9, 11),

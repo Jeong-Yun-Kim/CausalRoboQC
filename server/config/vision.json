@@ -1,0 +1,7 @@
+{
+  "dictionary": "DICT_4X4_50",
+  "input_roi": [0.05, 0.15, 0.4, 0.7],
+  "output_roi": [0.55, 0.15, 0.4, 0.7],
+  "stable_frames": 3,
+  "place_timeout_seconds": 10.0
+}

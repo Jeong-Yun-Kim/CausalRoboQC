@@ -15,6 +15,7 @@ import 'metric_help.dart';
 import 'copilot_overlay.dart';
 import 'rpf_analysis_overview.dart';
 import 'camera_preview.dart';
+import 'server_camera_preview.dart';
 
 const _configuredApiBase = String.fromEnvironment(
   'API_BASE_URL',
@@ -984,7 +985,10 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(height: DashboardTheme.sectionSpacing),
               _buildSafety(),
               const SizedBox(height: DashboardTheme.sectionSpacing),
-              const CameraPreview(),
+              if (_status['camera_preview_mode'] == 'server')
+                ServerCameraPreview(apiBase: _apiBase)
+              else if (_status['camera_preview_mode'] == 'browser')
+                const CameraPreview(),
               const SizedBox(height: DashboardTheme.sectionSpacing),
               if (wide)
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [

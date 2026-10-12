@@ -9,7 +9,8 @@
     "PLACE_FAILURE_INJECTED": "배치 실패",
     "PRODUCT_ID_MISMATCH": "제품 ID 불일치",
     "INSPECTION_FAIL": "검사 불합격",
-    "INSPECTION_FAILED": "검사 불합격"
+    "INSPECTION_FAILED": "검사 불합격",
+    "PLACE_TIMEOUT": "배치 확인 시간 초과"
   },
   "error_events": [
     "PICK_RETRY_INJECTED",
@@ -19,7 +20,8 @@
     "INSPECTION_FAIL",
     "INSPECTION_FAILED",
     "RUN_INTERRUPTED",
-    "RPF_FAILED"
+    "RPF_FAILED",
+    "PLACE_TIMEOUT"
   ],
   "operator_intervention_events": [
     "OPERATOR_INTERVENTION"

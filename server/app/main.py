@@ -1,9 +1,12 @@
 import os
+import logging
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI, HTTPException, Path, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from .config import load_settings
@@ -20,6 +23,13 @@ from .service import RobotError, RobotService, WebSocketHub
 class StartRunBody(BaseModel):
     repeat: bool = False
     mode: Literal["normal", "error"] = "normal"
+
+
+class InspectionBody(BaseModel):
+    result: Literal["PASS", "FAIL"]
+    confirmed_causes: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(default_factory=list, max_length=30)
+    action: str = Field(default="", max_length=2000)
+    note: str = Field(default="", max_length=4000)
 
 
 class ServoBody(BaseModel):
@@ -42,7 +52,10 @@ async def lifespan(app: FastAPI):
     try:
         with presentation_guard(settings):
             if settings.presentation_mode:
-                await prepare_presentation(settings, analysis_client)
+                try:
+                    await prepare_presentation(settings, analysis_client)
+                except AnalysisError:
+                    logging.getLogger(__name__).warning("AI unavailable; presentation RPFs remain available")
             database = Database(settings.database_path)
             app.state.analysis_client = analysis_client
             analysis = RpfAnalysisService(database, analysis_client)
@@ -89,8 +102,50 @@ async def api_call(awaitable: Any) -> Any:
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health(request: Request) -> dict[str, Any]:
+    service = service_from(request)
+    return {"status": "ok", "serial_connected": service.serial.snapshot().get("connected", False),
+            **service.vision.status(), "analysis_server_available": service.analysis_server_available}
+
+
+def camera_from(request):
+    vision = service_from(request).vision
+    if vision.settings.camera_preview_mode != "server":
+        raise HTTPException(404, "Server camera preview is disabled")
+    if not vision.camera_connected or vision.latest_jpeg is None:
+        raise HTTPException(503, "카메라에 연결할 수 없습니다. 연결 상태를 확인해 주세요.")
+    return vision
+
+
+@app.get("/api/camera/health")
+async def camera_health(request: Request):
+    return service_from(request).vision.status()
+
+
+@app.get("/api/camera/snapshot")
+async def camera_snapshot(request: Request):
+    return Response(camera_from(request).latest_jpeg, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/camera/stream")
+async def camera_stream(request: Request):
+    vision = camera_from(request)
+    async def frames():
+        while not await request.is_disconnected() and vision.camera_connected:
+            frame = vision.latest_jpeg
+            if frame is not None:
+                yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+            await asyncio.sleep(.1)
+    return StreamingResponse(frames(), media_type="multipart/x-mixed-replace; boundary=frame",
+                             headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
+
+
+@app.put("/api/rpf/{rpf_id}/inspection")
+async def save_inspection(request: Request, rpf_id: Annotated[int, Path(ge=1)], body: InspectionBody):
+    try:
+        return service_from(request).database.save_inspection(rpf_id, **body.model_dump())
+    except LookupError as exc:
+        raise HTTPException(404, "RPF not found") from exc
 
 
 @app.get("/")

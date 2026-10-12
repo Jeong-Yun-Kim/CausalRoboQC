@@ -129,6 +129,18 @@ class Database:
                 str(row["name"])
                 for row in self.connection.execute("PRAGMA table_info(rpf_records)")
             }
+            self.connection.execute("""
+                CREATE TABLE IF NOT EXISTS inspections (
+                    rpf_id INTEGER PRIMARY KEY REFERENCES rpf_records(id),
+                    result TEXT NOT NULL CHECK(result IN ('PASS','FAIL')),
+                    confirmed_causes TEXT NOT NULL DEFAULT '[]',
+                    action TEXT NOT NULL DEFAULT '',
+                    note TEXT NOT NULL DEFAULT '',
+                    inspected_at TEXT NOT NULL
+                )
+            """)
+            if "marker_id" not in rpf_columns:
+                self.connection.execute("ALTER TABLE rpf_records ADD COLUMN marker_id INTEGER")
             if "product_group" not in rpf_columns:
                 self.connection.execute("ALTER TABLE rpf_records ADD COLUMN product_group TEXT")
             self.connection.execute(
@@ -273,16 +285,17 @@ class Database:
         cycle_index: int,
         product_id: str,
         product_group: str | None = None,
+        marker_id: int | None = None,
     ) -> dict[str, Any]:
         now = utc_now()
         with self.lock:
             cursor = self.connection.execute(
                 """
                 INSERT INTO rpf_records(
-                    run_id,cycle_index,product_id,status,started_at,created_at,updated_at,product_group
-                ) VALUES(?,?,?,?,?,?,?,?)
+                    run_id,cycle_index,product_id,status,started_at,created_at,updated_at,product_group,marker_id
+                ) VALUES(?,?,?,?,?,?,?,?,?)
                 """,
-                (run_id, cycle_index, product_id, "running", now, now, now, product_group),
+                (run_id, cycle_index, product_id, "running", now, now, now, product_group, marker_id),
             )
             self.connection.commit()
             return self.get_rpf(int(cursor.lastrowid))
@@ -292,7 +305,32 @@ class Database:
             row = self.connection.execute(
                 "SELECT * FROM rpf_records WHERE id=?", (rpf_id,)
             ).fetchone()
-            return self._rpf(row)
+            record = self._rpf(row)
+            if record is not None:
+                record["inspection"] = self.get_inspection(rpf_id)
+            return record
+
+    def get_inspection(self, rpf_id: int) -> dict[str, Any] | None:
+        with self.lock:
+            row = self.connection.execute("SELECT * FROM inspections WHERE rpf_id=?", (rpf_id,)).fetchone()
+            if row is None:
+                return None
+            result = dict(row)
+            result["confirmed_causes"] = json.loads(result["confirmed_causes"])
+            return result
+
+    def save_inspection(self, rpf_id: int, result: str, confirmed_causes: list[str], action: str, note: str):
+        with self.lock:
+            if self.get_rpf(rpf_id) is None:
+                raise LookupError("RPF not found")
+            self.connection.execute("""
+                INSERT INTO inspections(rpf_id,result,confirmed_causes,action,note,inspected_at)
+                VALUES(?,?,?,?,?,?) ON CONFLICT(rpf_id) DO UPDATE SET
+                result=excluded.result,confirmed_causes=excluded.confirmed_causes,
+                action=excluded.action,note=excluded.note,inspected_at=excluded.inspected_at
+            """, (rpf_id, result, json.dumps(confirmed_causes, ensure_ascii=False), action, note, utc_now()))
+            self.connection.commit()
+            return self.get_inspection(rpf_id)
 
     def list_rpfs(self, limit: int, offset: int, *, include_analysis: bool = False) -> list[dict[str, Any]]:
         with self.lock:
@@ -301,6 +339,8 @@ class Database:
                 (limit, offset),
             ).fetchall()
             records = [self._rpf(row) for row in rows]
+            for record in records:
+                record["inspection"] = self.get_inspection(record["id"])
             if include_analysis:
                 for record in records:
                     record["analysis_result"] = self.get_analysis_result(record["id"])
@@ -345,8 +385,10 @@ class Database:
                     "SELECT r.id,r.product_id,r.product_group,r.started_at,r.finished_at,"
                     "r.status,r.grade,r.work_time_ms,r.retry_count,r.error_count,"
                     "r.operator_interventions,a.anomaly_score,a.inspection_risk_score,"
-                    "a.timeseries_anomaly_score FROM rpf_records r "
-                    "LEFT JOIN analysis_results a ON a.rpf_id=r.id"
+                    "a.timeseries_anomaly_score,r.marker_id,i.result AS inspection_result,"
+                    "i.confirmed_causes,i.action,i.note,i.inspected_at FROM rpf_records r "
+                    "LEFT JOIN analysis_results a ON a.rpf_id=r.id "
+                    "LEFT JOIN inspections i ON i.rpf_id=r.id"
                     f"{where} ORDER BY julianday(r.finished_at) DESC,r.id DESC LIMIT ? OFFSET ?",
                     (*parameters, -1 if limit is None else limit, offset),
                 ).fetchall()
@@ -354,7 +396,7 @@ class Database:
                     "SELECT DISTINCT product_group FROM rpf_records "
                     "WHERE product_group IS NOT NULL ORDER BY product_group"
                 ).fetchall()
-            return {"items": [dict(row) for row in rows], "total": total,
+            return {"items": [{**dict(row), "confirmed_causes": json.loads(row["confirmed_causes"] or "[]")} for row in rows], "total": total,
                     "product_groups": [row[0] for row in groups]}
 
     def get_analysis_result(self, rpf_id: int) -> dict[str, Any] | None:

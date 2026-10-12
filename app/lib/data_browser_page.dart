@@ -319,7 +319,13 @@ class _DataBrowserPageState extends State<DataBrowserPage> {
                                               '작업자 개입',
                                               '공정 이상도',
                                               '검사 위험도',
-                                              '공정 단계 시간 이상도'
+                                              '공정 단계 시간 이상도',
+                                              '마커 ID',
+                                              '검사 결과',
+                                              '검사 메모',
+                                              '확인된 원인',
+                                              '조치',
+                                              '검사 시각'
                                             ])
                                               DataColumn(
                                                   numeric: ![
@@ -377,6 +383,23 @@ class _DataBrowserPageState extends State<DataBrowserPage> {
                                                               null
                                                           ? '-'
                                                           : '${(score * 100).toStringAsFixed(1)}%')),
+                                                    DataCell(Text(row.markerId
+                                                            ?.toString() ??
+                                                        '-')),
+                                                    DataCell(Text(
+                                                        row.inspectionResult ??
+                                                            '-')),
+                                                    DataCell(Text(
+                                                        row.inspectionNote ??
+                                                            '-')),
+                                                    DataCell(Text(row
+                                                        .confirmedCauses
+                                                        .join(', '))),
+                                                    DataCell(Text(
+                                                        row.inspectionAction ??
+                                                            '-')),
+                                                    DataCell(Text(_timestamp(
+                                                        row.inspectedAt))),
                                                   ])
                                           ],
                                         ),

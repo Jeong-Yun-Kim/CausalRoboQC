@@ -66,6 +66,14 @@ final class DataBrowserRecord {
   DataBrowserRecord.fromJson(Map<String, dynamic> json)
       : id = json['id'] as int,
         productId = json['product_id'] as String?,
+        markerId = json['marker_id'] as int?,
+        inspectionResult = json['inspection_result'] as String?,
+        inspectionNote = json['note'] as String?,
+        inspectionAction = json['action'] as String?,
+        confirmedCauses =
+            (json['confirmed_causes'] as List? ?? const []).cast<String>(),
+        inspectedAt = DateTime.tryParse(json['inspected_at']?.toString() ?? '')
+            ?.toLocal(),
         productGroup = json['product_group'] as String?,
         finishedAt =
             DateTime.tryParse(json['finished_at']?.toString() ?? '')?.toLocal(),
@@ -82,6 +90,12 @@ final class DataBrowserRecord {
 
   final int id;
   final String? productId;
+  final int? markerId;
+  final String? inspectionResult;
+  final String? inspectionNote;
+  final String? inspectionAction;
+  final List<String> confirmedCauses;
+  final DateTime? inspectedAt;
   final String? productGroup;
   final DateTime? finishedAt;
   final QualityGrade? grade;

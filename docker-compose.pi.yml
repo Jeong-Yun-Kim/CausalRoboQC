@@ -1,0 +1,45 @@
+# Standalone Pi deployment: docker compose --env-file .pi.env -f docker-compose.pi.yml up -d --build
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile.pi
+    environment:
+      SERIAL_DEVICE: ${SERIAL_DEVICE:-/dev/ttyACM0}
+      CAMERA_DEVICE: ${CAMERA_DEVICE:-/dev/video0}
+      VISION_ENABLED: ${VISION_ENABLED:-true}
+      VISION_REQUIRED: ${VISION_REQUIRED:-true}
+      CAMERA_PREVIEW_MODE: ${CAMERA_PREVIEW_MODE:-server}
+      VISION_CONFIG_PATH: ${VISION_CONFIG_PATH:-/workspace/server/config/vision.json}
+      DATABASE_PATH: /data/robot_arm.db
+      PRESENTATION_DATABASE_PATH: /data/presentation.db
+      PRESENTATION_MODE: ${PRESENTATION_MODE:-false}
+      POSES_PATH: /workspace/server/config/poses.json
+      ANALYSIS_BASE_URL: ${ANALYSIS_BASE_URL:-http://192.168.1.10:9000}
+      ANALYSIS_TIMEOUT_SECONDS: 3
+    ports:
+      - "8000:8000"
+    devices:
+      - "${SERIAL_DEVICE:-/dev/ttyACM0}:${SERIAL_DEVICE:-/dev/ttyACM0}:rw"
+      - "${CAMERA_DEVICE:-/dev/video0}:${CAMERA_DEVICE:-/dev/video0}:rw"
+    volumes:
+      - pi_sqlite:/data
+      - ./server/config:/workspace/server/config
+    restart: unless-stopped
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.pi
+    depends_on:
+      server:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+volumes:
+  pi_sqlite:

@@ -1,4 +1,5 @@
 import json
+from uuid import uuid4
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -8,7 +9,7 @@ from .database import Database, utc_now
 
 
 def generate_product_id(sequence: int) -> str:
-    """Temporary product identity provider; replace here when camera IDs arrive."""
+    """Legacy identity for operation with vision disabled."""
     return f"P-{sequence:03d}"
 
 
@@ -90,10 +91,10 @@ class RpfPipeline:
         self.rules = RpfRules(rules_path)
         self._next_product_sequence = database.next_rpf_sequence()
 
-    def start_cycle(self, run_id: int, cycle_index: int) -> dict[str, Any]:
-        product_id = generate_product_id(self._next_product_sequence)
+    def start_cycle(self, run_id: int, cycle_index: int, marker_id: int | None = None) -> dict[str, Any]:
+        product_id = f"P-{uuid4().hex}" if marker_id is not None else generate_product_id(self._next_product_sequence)
         self._next_product_sequence += 1
-        return self.database.create_rpf(run_id, cycle_index, product_id)
+        return self.database.create_rpf(run_id, cycle_index, product_id, marker_id=marker_id)
 
     @staticmethod
     def _elapsed_from_timestamp(started_at: str) -> int:

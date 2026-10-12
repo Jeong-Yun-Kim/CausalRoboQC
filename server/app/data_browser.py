@@ -1,6 +1,7 @@
 """Read-only RPF browser and CSV export with one shared filter contract."""
 
 import csv
+import json
 from datetime import datetime, timezone
 import io
 from typing import Annotated, Any, Literal
@@ -12,6 +13,7 @@ from pydantic import AwareDatetime
 
 router = APIRouter(prefix="/api/data", tags=["data"])
 CSV_COLUMNS = (
+    "id", "marker_id", "inspection_result", "confirmed_causes", "action", "note", "inspected_at",
     "product_id", "product_group", "started_at", "finished_at", "status", "grade",
     "work_time_ms", "retry_count", "error_count", "operator_interventions",
     "anomaly_score", "inspection_risk_score", "timeseries_anomaly_score",
@@ -59,6 +61,10 @@ def export_rpfs(request: Request, filters: Annotated[dict, Depends(rpf_filters)]
         for row in rows:
             buffer.seek(0)
             buffer.truncate(0)
+            row = {**row, "confirmed_causes": json.dumps(row["confirmed_causes"], ensure_ascii=False)}
+            # User-entered inspection text must remain literal in spreadsheet software.
+            row = {key: "'" + value if isinstance(value, str) and value.lstrip().startswith(("=", "+", "-", "@"))
+                   else value for key, value in row.items()}
             writer.writerow(row)  # None is an empty CSV cell; scores are never invented.
             yield buffer.getvalue()
 

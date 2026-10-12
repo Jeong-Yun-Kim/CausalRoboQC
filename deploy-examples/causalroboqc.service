@@ -1,0 +1,14 @@
+# Example only: edit user/path before manually installing on the Pi.
+[Unit]
+Description=CausalRoboQC Pi services
+After=docker.service network-online.target
+Requires=docker.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=pi
+WorkingDirectory=/home/pi/CausalRoboQC
+ExecStart=/home/pi/CausalRoboQC/scripts/run_pi.sh --start
+ExecStop=/usr/bin/docker compose --env-file .pi.env -f docker-compose.pi.yml stop
+[Install]
+WantedBy=multi-user.target

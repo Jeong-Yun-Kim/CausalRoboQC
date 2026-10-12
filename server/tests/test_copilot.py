@@ -179,7 +179,11 @@ class LaptopContractTest(unittest.IsolatedAsyncioTestCase):
             return ["f0"]
         # Query preparation is separately tested with the real SQLite database.
         from types import SimpleNamespace
-        service = SimpleNamespace(database=None, settings=SimpleNamespace(analysis_base_url="http://laptop"))
+        service = SimpleNamespace(database=None, settings=SimpleNamespace(analysis_base_url="http://laptop"),
+                                  serial=SimpleNamespace(snapshot=lambda: {"connected": False}),
+                                  vision=SimpleNamespace(status=lambda: {"camera_connected": False,
+                                      "vision_ready": False, "active_marker_id": None}),
+                                  analysis_server_available=False)
         prepared = {"answer": "", "table": None, "chart": None, "demo_data": False,
                     "intent": "USAGE_HELP", "facts": [{"id": "f0", "text": "사용 안내"}], "required_fact_ids": []}
         with patch.object(app.state, "service", service, create=True), patch(
